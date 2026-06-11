@@ -13,3 +13,9 @@ cookies.txt
 *.pem
 *.p12
 *.key
+
+# 転記元の Notion 原稿（private、git で管理しない）
+.notion-source/
+
+# 別 session の Claude 用指示文（local 専用）
+AGENT_INSTRUCTIONS.md
