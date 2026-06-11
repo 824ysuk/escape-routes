@@ -1,0 +1,15 @@
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.local
+cookies.txt
+*.pem
+*.p12
+*.key
