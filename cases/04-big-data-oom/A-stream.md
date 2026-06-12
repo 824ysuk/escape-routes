@@ -17,6 +17,16 @@ python --version   # 3.8+
 pip install pandas   # chunksize オプションを使う場合
 ```
 
+**JSON 向け追加**:
+
+```bash
+# Node.js
+npm install stream-json stream-chain
+
+# Python
+pip install ijson
+```
+
 ## コード
 
 **Node.js**:
@@ -64,6 +74,42 @@ with open('huge.csv', newline='') as fin, open('out.csv', 'w', newline='') as fo
 #     chunk.to_csv('out.csv', mode='a', header=False, index=False)
 ```
 
+**Node.js（JSON 配列、stream-json）**:
+
+```javascript
+// stream-json.mjs — 巨大 JSON 配列を逐次処理
+import { createReadStream } from 'node:fs';
+import { chain } from 'stream-chain';
+import { parser } from 'stream-json';
+import StreamArray from 'stream-json/streamers/StreamArray.js';
+
+const pipeline = chain([
+  createReadStream('huge.json'),
+  parser(),
+  StreamArray.withParser(),
+]);
+
+let count = 0;
+pipeline.on('data', ({ value }) => {
+  // value は配列内の各オブジェクト
+  count += 1;
+});
+pipeline.on('end', () => console.log(`processed ${count} items`));
+```
+
+**Python（JSON 配列、ijson）**:
+
+```python
+# stream_json.py — ijson で大きな JSON 配列を逐次処理
+import ijson
+
+with open('huge.json', 'rb') as f:
+    # JSON 配列のルート要素を 1 つずつ取り出す（'item' は配列要素のパス）
+    for item in ijson.items(f, 'item'):
+        # item は dict
+        pass
+```
+
 ## 期待出力
 
 - `out.csv` に変換後 CSV が保存される
@@ -84,3 +130,4 @@ with open('huge.csv', newline='') as fin, open('out.csv', 'w', newline='') as fo
 - header が無い CSV は `columns: false` にして row を配列で扱う
 - ESM / CJS 互換: `package.json` の `"type": "module"` か `.mjs` 拡張子で ESM 化
 - pandas の `chunksize` は内部で全件読まないため OOM を回避できる
+- 巨大 JSON は構造による: `[{...}, {...}, ...]` 形式は stream-json / ijson で逐次化、改行区切り（JSONL = 1 行 1 JSON）なら Node.js は `readline`、Python は `for line in f: json.loads(line)` で済む
