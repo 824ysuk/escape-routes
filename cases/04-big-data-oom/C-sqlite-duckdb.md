@@ -31,7 +31,7 @@ duckdb -c "SELECT category, SUM(amount) AS total FROM read_csv_auto('huge.csv') 
 
 ## 期待出力
 
-- 標準出力に集計結果（10 行）: `category_a|123456789.0` / `category_b|98765432.1` ...
+- 標準出力に集計結果（最大 10 行）: 1 行目に header `category,total`、続いて `category_a,123456789.0` / `category_b,98765432.1` ...（`.mode csv` 設定のため `,` 区切り）
 - SQLite 経由の場合 `data.db` が残る（CSV と同程度のサイズ）
 
 ## ハマりポイント
