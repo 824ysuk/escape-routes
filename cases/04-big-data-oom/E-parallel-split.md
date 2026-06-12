@@ -57,3 +57,4 @@ print(total)
 - 失敗時の停止: `--halt now,fail=1` を付けないと失敗 job が無視され結果が欠ける
 - merge の順序: `cat chunk_*.out` の glob 順は環境依存 → `sort` で明示
 - disk 容量: 元ファイル + 各 chunk + header の合計でほぼ 2 倍消費 → `/tmp` の容量を事前確認
+- **`split` のデフォルト suffix は 2 文字 = 最大 676 chunk**: 超えると `split: too many files` で停止する。`-l 100000` なら data 約 6,760 万行が上限 → それ以上は `split -a 3 -l 100000` で suffix を 3 文字に拡張し、後続の glob（`chunk_??` / `chunk_*.csv`）も `chunk_???` に合わせる
