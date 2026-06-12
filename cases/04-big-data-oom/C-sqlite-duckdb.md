@@ -3,9 +3,16 @@
 ## 前提 / install
 
 ```bash
+# macOS
 brew install sqlite3
-sqlite3 --version
 brew install duckdb
+
+# Debian / Ubuntu
+sudo apt install sqlite3
+curl https://install.duckdb.org | sh   # DuckDB 公式 install script（https://duckdb.org/install/）
+
+# 確認
+sqlite3 --version
 duckdb --version
 ```
 
