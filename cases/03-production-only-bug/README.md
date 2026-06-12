@@ -1,7 +1,5 @@
 # 事例 3: 本番でしか起きないバグを調査したい
 
-> Status: 🚧 WIP（各代替手段の詳細は `.notion-source/03-production-only-bug.md` から個別ファイルへ転記中）
-
 ## 何が起きるか
 
 local や staging で再現しない、production でだけ落ちる / 遅くなる。`docker-compose up` で本番同等の環境を作ろうとしても、データ量・トラフィック・並行性・外部 API の応答が違うため再現コストが膨大。
