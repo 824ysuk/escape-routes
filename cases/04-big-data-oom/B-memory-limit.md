@@ -19,7 +19,9 @@ GOMEMLIMIT=8GiB go run main.go
 # Ruby: GC tuning
 RUBY_GC_HEAP_GROWTH_FACTOR=1.1 RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR=2.0 ruby script.rb
 
-# Python: resource module でプロセスごとに上限指定
+# Python: resource module で上限を「課して」fail-fast させる
+# （swap で爆遅になる前に MemoryError で落とす用途。CPython の heap はデフォルト無制限なので、
+#  他言語と異なり「上限を上げる」側ではなく「上限を引き下げる」側として使う）
 python -c "import resource; resource.setrlimit(resource.RLIMIT_AS, (8 * 1024**3, 8 * 1024**3)); exec(open('script.py').read())"
 ```
 
