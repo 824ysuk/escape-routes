@@ -14,6 +14,13 @@
 | [D. iOS Web Inspector / Android Studio Network Profiler](D-mobile-devtools.md) | 公式の OS / IDE ツール。CA インストール不要で安全 | 自社モバイルアプリのデバッグ |
 | [E. アプリにデバッグログを仕込む](E-debug-log.md) | リクエスト直前にログを print | 1 リクエストだけ確認したい |
 
+## 他手段を選ぶ条件
+
+- **B（Charles / Proxyman）**: CLI が苦手、GUI で目視したい、有料ライセンスが許容できる
+- **C（Wireshark）**: HTTPS の中身ではなく、コネクション失敗・TLS handshake error を見たい
+- **D（公式 dev tool）**: 自社アプリで、CA インストールしたくない
+- **E（デバッグログ）**: 1 リクエストだけ見たい、ソースが手元にある
+
 ## 補足
 
 DevTools で見える「ブラウザの通信」は氷山の一角。プロトコル層を 1 段下げる（Wireshark）か、proxy を挟む（mitmproxy）か、アプリの中に入る（E）かで観察可能な領域が広がる。

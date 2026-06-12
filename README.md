@@ -13,11 +13,11 @@
 
 | # | 事例 | 詰まる原因 | 代替手段数 |
 |---|---|---|---|
-| 1 | [SNS / 動的サイトからデータが取れない](cases/01-sns-dynamic-site.md) | ボット検知・JS 動的レンダリング | 6 |
-| 2 | [認証必須サービスから定期取得したい](cases/02-authenticated-service.md) | OAuth / 2FA / Cookie 同期 | 5 |
-| 3 | [本番でしか起きないバグを調査したい](cases/03-production-only-bug.md) | local で再現できない | 5 |
-| 4 | [巨大データで OOM が出る](cases/04-big-data-oom.md) | メモリに収まらない | 5 |
-| 5 | [ブラウザに見えない通信を観察したい](cases/05-invisible-traffic.md) | モバイル・他アプリ・暗号化通信 | 5 |
+| 1 | [SNS / 動的サイトからデータが取れない](cases/01-sns-dynamic-site/README.md) | ボット検知・JS 動的レンダリング | 6 |
+| 2 | [認証必須サービスから定期取得したい](cases/02-authenticated-service/README.md) | OAuth / 2FA / Cookie 同期 | 5 |
+| 3 | [本番でしか起きないバグを調査したい](cases/03-production-only-bug/README.md) | local で再現できない | 5 |
+| 4 | [巨大データで OOM が出る](cases/04-big-data-oom/README.md) | メモリに収まらない | 5 |
+| 5 | [ブラウザに見えない通信を観察したい](cases/05-invisible-traffic/README.md) | モバイル・他アプリ・暗号化通信 | 5 |
 
 ## 共通パターン
 
@@ -67,6 +67,20 @@ PR で事例追加・既存事例の改善を歓迎します。詳細は [CONTRI
 - [How to Solve It (Wikipedia)](https://en.wikipedia.org/wiki/How_to_Solve_It) — George Pólya、1945
 - [Lateral Thinking (Wikipedia)](https://en.wikipedia.org/wiki/Lateral_thinking) — Edward de Bono、1967
 - [The Pragmatic Programmer](https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/) — David Thomas & Andrew Hunt
+
+### 事例別の一次情報
+- 事例 1: [Performance API (W3C)](https://www.w3.org/TR/performance-timeline/) / [Performance API (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Performance_API) / [Instagram Graph API](https://developers.facebook.com/docs/instagram-platform)
+- 事例 2: [OAuth 2.0 (RFC 6749)](https://datatracker.ietf.org/doc/html/rfc6749) / [Device Authorization Grant (RFC 8628)](https://datatracker.ietf.org/doc/html/rfc8628) / [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) / [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+- 事例 3: [Brendan Gregg — Systems Performance (2nd ed)](https://www.brendangregg.com/sysperfbook.html) / [Google SRE Book](https://sre.google/sre-book/table-of-contents/) / [py-spy](https://github.com/benfred/py-spy) / [async-profiler](https://github.com/async-profiler/async-profiler) / [Argo Rollouts AnalysisTemplate](https://argoproj.github.io/argo-rollouts/features/analysis/)
+- 事例 4: [Designing Data-Intensive Applications](https://dataintensive.net/) / [Node.js Stream Docs](https://nodejs.org/api/stream.html)
+- 事例 5: [mitmproxy ドキュメント](https://docs.mitmproxy.org/stable/) / [Wireshark Wiki](https://wiki.wireshark.org/) / [Android Network Security Config](https://developer.android.com/training/articles/security-config)
+
+### 本記事の事例別ツール一覧
+- 事例 1: [yt-dlp](https://github.com/yt-dlp/yt-dlp) / [gallery-dl](https://github.com/mikf/gallery-dl) / [instaloader](https://github.com/instaloader/instaloader) / [Playwright stealth](https://github.com/AtuboDad/playwright_stealth) / [rebrowser-playwright](https://github.com/rebrowser/rebrowser-playwright) / [ScrapingBee](https://www.scrapingbee.com/) / [Bright Data](https://brightdata.com/)
+- 事例 2: [Playwright](https://playwright.dev/) / [mitmproxy](https://mitmproxy.org/) / [pyotp](https://github.com/pyauth/pyotp) / [EditThisCookie](https://chromewebstore.google.com/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg)
+- 事例 3: [py-spy](https://github.com/benfred/py-spy) / [async-profiler](https://github.com/async-profiler/async-profiler) / [tcpdump](https://www.tcpdump.org/) / [strace](https://strace.io/) / [Argo Rollouts](https://argoproj.github.io/argo-rollouts/) / [delve](https://github.com/go-delve/delve)
+- 事例 4: [SQLite](https://www.sqlite.org/) / [DuckDB](https://duckdb.org/) / [GNU parallel](https://www.gnu.org/software/parallel/) / [`--max-old-space-size`](https://nodejs.org/api/cli.html#--max-old-space-sizesize-in-mib) / [Eclipse MAT](https://www.eclipse.org/mat/)
+- 事例 5: [Charles Proxy](https://www.charlesproxy.com/) / [Proxyman](https://proxyman.io/) / [Wireshark](https://www.wireshark.org/) / [iOS Web Inspector](https://developer.apple.com/documentation/safari-developer-tools/inspecting-iphone-or-ipad-apps)
 
 ## License
 
