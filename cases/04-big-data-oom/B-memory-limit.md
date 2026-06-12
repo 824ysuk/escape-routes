@@ -34,3 +34,4 @@ python -c "import resource; resource.setrlimit(resource.RLIMIT_AS, (8 * 1024**3,
 - 物理メモリを超えた指定は swap で爆遅。`free -h`（Linux）/ `vm_stat`（macOS）で空きを確認
 - **コンテナ環境では cgroup memory limit が優先**: Node に 8 GB 与えても cgroup limit が 4 GB なら 4 GB で OOMKilled。`docker run -m 8g` / K8s の `resources.limits.memory` も併せて引き上げる
 - `-Xmx` は heap のみ。Metaspace / off-heap / native memory は別途確保される
+- Python の `resource.setrlimit(RLIMIT_AS, ...)` は **macOS では `ValueError: current limit exceeds maximum limit` で失敗する**（Darwin は hard limit 未満への引き下げでも `RLIMIT_AS` の変更を受け付けない）。この手法は Linux 専用
