@@ -1,7 +1,5 @@
 # 事例 1: SNS / 動的サイトからデータが取れない
 
-> Status: 🚧 WIP（各代替手段の詳細は `.notion-source/01-sns-dynamic-site.md` から個別ファイルへ転記中）
-
 ## 何が起きるか
 
 `curl` や HTTP ライブラリで GET すると 403 が返る、あるいは HTML は取れるが投稿・画像のデータが入っていない（テンプレートだけ）。Instagram・X・LinkedIn・TikTok 等が該当する。原因は（1）サーバーサイドのボット検知（User-Agent・IP・JA3 fingerprint 等）、（2）JavaScript で投稿データを後から読み込む動的レンダリング、の 2 つ。

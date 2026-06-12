@@ -1,7 +1,5 @@
 # 事例 2: 認証必須サービスから定期取得したい
 
-> Status: 🚧 WIP（各代替手段の詳細は `.notion-source/02-authenticated-service.md` から個別ファイルへ転記中）
-
 ## 何が起きるか
 
 対象サービスが OAuth 2.0 (RFC 6749) + TOTP（2 段階認証）または SAML SSO を要求する。`curl` で全フローを再現するのは、redirect 連鎖・state パラメータ・PKCE・TOTP 入力が組み合わさり実用に耐えない。
