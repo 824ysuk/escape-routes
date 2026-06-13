@@ -21,6 +21,7 @@ playwright install-deps   # Linux のみ
 
 ```python
 import os
+import stat
 import pyotp
 from playwright.sync_api import sync_playwright
 
@@ -44,6 +45,7 @@ with sync_playwright() as p:
         page.get_by_role('button', name='Verify').click()
         page.wait_for_url('**/dashboard', timeout=10_000)
         ctx.storage_state(path=STORAGE_STATE)
+        os.chmod(STORAGE_STATE, stat.S_IRUSR | stat.S_IWUSR)  # 0600
     page.screenshot(path='after-login.png')
     resp = page.request.get('https://app.example.com/api/orders')
     print('status:', resp.status)
@@ -62,6 +64,6 @@ with sync_playwright() as p:
 
 - selector は `role` ベース推奨。`button[type=submit]` は壊れやすい
 - CAPTCHA 出現時は突破不能。開発時 `HEADLESS=false` で動作確認、production は別 IP / 別アカウント
-- TOTP_SECRET は環境変数 / Vault / AWS Secrets Manager / GCP Secret Manager で管理。コード / git に直書き禁止
+- TOTP_SECRET は環境変数 / Vault / AWS Secrets Manager / GCP Secret Manager で管理。コード / git に直書き禁止。環境変数で渡しても `/proc/<pid>/environ` から同 uid プロセスに読まれるため、長期運用なら keyring / Vault に直接アクセスして取得する方が望ましい
 - デバッグ後に `HEADLESS=true` に戻し忘れると CI で画面が立ち上がろうとして失敗
-- `state.json` は認証 Cookie を含む（session 漏洩と等価）。`cookies.txt` 同様 **`.gitignore` に追加**
+- `state.json` は session Cookie / localStorage / sessionStorage を平文 JSON で含む（完全な session hijack に直結）。`.gitignore` 追加 + `chmod 600`（上のコードに実装済み）+ 漏洩時は対象サービスで全 session ログアウト（[Playwright auth docs](https://playwright.dev/python/docs/auth#reuse-signed-in-state) / [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)）

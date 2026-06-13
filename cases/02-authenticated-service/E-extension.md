@@ -29,18 +29,41 @@ manifest.json:
 background.js:
 
 ```javascript
+// URL の query string / fragment に access_token / session id が乗ることが
+// 実在する API (OAuth implicit, redirect 中継, 古い CSRF token を URL に付与する
+// 設計 等)。collector に送る前に sensitive な key を *** に置換し fragment は捨てる。
+const SENSITIVE_QUERY_KEYS = ['access_token', 'token', 'session', 'sid', 'auth', 'apikey', 'api_key', 'code', 'state'];
+function maskUrl(raw) {
+  const u = new URL(raw);
+  for (const k of [...u.searchParams.keys()]) {
+    if (SENSITIVE_QUERY_KEYS.includes(k.toLowerCase())) u.searchParams.set(k, '***');
+  }
+  u.hash = '';
+  return u.toString();
+}
+
+// collector への認証 (shared secret)。chrome.storage に手動で投入。
+async function collectorSecret() {
+  const { collectorSecret } = await chrome.storage.local.get('collectorSecret');
+  return collectorSecret;
+}
+
 chrome.webRequest.onCompleted.addListener(
   async (details) => {
-    if (details.method === 'GET' && details.statusCode === 200) {
-      try {
-        await fetch('https://collector.example.com/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: details.url, ts: Date.now() }),
-        });
-      } catch (e) {
-        console.error('collector POST failed', e);
-      }
+    if (details.method !== 'GET' || details.statusCode !== 200) return;
+    const secret = await collectorSecret();
+    if (!secret) { console.warn('collectorSecret 未設定'); return; }
+    try {
+      await fetch('https://collector.example.com/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Collector-Auth': secret,
+        },
+        body: JSON.stringify({ url: maskUrl(details.url), ts: Date.now() }),
+      });
+    } catch (e) {
+      console.error('collector POST failed', e);
     }
   },
   { urls: ['https://app.example.com/api/orders*'] }
@@ -54,13 +77,23 @@ chrome.alarms.onAlarm.addListener(() => console.log('alive'));
 
 ```javascript
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+    if (request.headers.get('X-Collector-Auth') !== env.COLLECTOR_SECRET) {
+      return new Response('forbidden', { status: 403 });
+    }
     const body = await request.json();
     console.log('received:', body);
     return new Response('ok');
   }
 };
+```
+
+collector の Worker に環境変数 `COLLECTOR_SECRET` を設定（`wrangler secret put COLLECTOR_SECRET`）し、拡張側にも同じ値を投入する:
+
+```javascript
+// 拡張のサービスワーカー console から 1 回だけ実行
+chrome.storage.local.set({ collectorSecret: '<長いランダム文字列>' });
 ```
 
 ## 期待出力
@@ -74,4 +107,6 @@ export default {
 - Manifest V3 の service worker は 30 秒の idle で停止 → 上の `chrome.alarms` で keep-alive
 - `webRequest` API では HTTP header と URL のみ取得可能、レスポンス body は取得不能 → body が必要なら content_scripts で `fetch` を wrap
 - Chrome Web Store 公開時は permission 説明文の justification が必要
-- collector へ送る URL の query string に session token / PII が含まれることがある。送信前にマスクするか、collector 側を認証付き・アクセス制限ありにする
+- **`webRequest` は Manifest V3 で観測用途なら [`declarativeNetRequest`](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest) が推奨**。`webRequest` の blocking 形態は enterprise policy 限定になりつつあり、Web Store 公開の際の justification 要件が厳しい。`permissions: ['webRequest']` は「閲覧履歴を読み取れる」と表示されるため、エンドユーザーへの説明責任とプライバシー影響評価（PIA）を社内で行うか、[Chrome Enterprise policy 配布](https://developer.chrome.com/docs/webstore/program-policies/permissions/)に切り替えるかを検討
+- **`host_permissions` を `<all_urls>` に拡げない**（Web Store reject 直行）。常に必要最小のホストに絞る
+- collector へ送る URL に PII / token が混入するため、上のコードでは (a) 拡張側で sensitive query を `***` に置換、(b) collector を `X-Collector-Auth` shared secret で認証、(c) 拡張・collector を同 TLS 経路に限定する形にしている。これでも不安なら、URL ではなく [WebRequest API のレスポンス header から必要 metadata だけ抽出して送る](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#sensitive-information-in-http-requests)、Logging Cheat Sheet 準拠の masking を追加する
