@@ -64,7 +64,9 @@ function safeGet(url, options) {
 await safeGet('https://api.example.com/orders', { headers: { 'Authorization': 'Bearer abc123' } });
 ```
 
-Go (net/http/httptrace) — Authorization 除外:
+Go (net/http/httptrace) — ログ表示時に Authorization をマスク:
+
+注: `WroteHeaderField` は **ヘッダがソケットに書き込まれた後** に呼ばれる notification callback。ログ出力上は `***MASKED***` になるが、実際のネットワーク通信には real な `Authorization: Bearer abc123` がそのまま送出される（Python / Node 版の `safe_get` / `safeGet` は dict から消すので送信からも除外される点と挙動が異なる）。送信から消したい場合は `req.Header.Del("Authorization")` 等で別途処理する（[ClientTrace.WroteHeaderField](https://pkg.go.dev/net/http/httptrace#ClientTrace.WroteHeaderField)）。
 
 ```go
 package main
@@ -82,6 +84,8 @@ func main() {
 		DNSDone: func(d httptrace.DNSDoneInfo) { fmt.Printf("DNS: %+v\n", d) },
 		GotConn: func(c httptrace.GotConnInfo) { fmt.Printf("GotConn: %+v\n", c) },
 		WroteHeaderField: func(k string, v []string) {
+			// 書き込み後の callback なので、ここでのマスクは「ログ表示のマスク」のみ。
+			// 実通信に Authorization は送出される。
 			if secretHeaders[strings.ToLower(k)] {
 				fmt.Printf("hdr %s=***MASKED***\n", k)
 			} else {
