@@ -2,25 +2,27 @@
 
 ## 前提 / install
 
+- 個人アカウント向けの **Instagram Basic Display API は 2024-12-04 で廃止済**。現在 API 経由でデータ取得できるのは Business / Creator アカウントのみで、本記事はその前提（[Instagram Platform changelog](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/)）
 - `jq` install: `brew install jq` / `apt install jq`
 - Business / Creator アカウント切り替え: Instagram アプリ → 設定 → アカウント → プロアカウントに切り替え
 - Facebook ページ作成 + Instagram アカウント連携
 - [Facebook Developer Console](https://developers.facebook.com/) でアプリ作成 → 「製品を追加」で Instagram Graph API → Graph API Explorer 画面（左上のドロップダウンでアプリ選択 → "User or Page" → "Get User Access Token" → スコープに `instagram_basic`, `pages_show_list`, `pages_read_engagement` → "Generate Access Token"）
-- 環境変数 `ACCESS_TOKEN` / `APP_ID` / `APP_SECRET` に保存
+- API version は環境変数化（執筆時点で `v23.0` が current stable。Meta は約 2 年で各 version を sunset するため、定期実行では最新 GA を環境変数で切り替えられるようにする）
+- 環境変数: `GRAPH_API_VERSION=v23.0`、`ACCESS_TOKEN` / `APP_ID` / `APP_SECRET` に保存
 - 個人ユーザーのデータダウンロード（API 不使用）: Instagram → 設定 → アカウントセンター → 個人の情報 → 情報のダウンロード
 
 ## コード
 
 ```bash
 # 1. 自分の Instagram Business アカウント ID を取得
-curl -G 'https://graph.facebook.com/v20.0/me/accounts' \
+curl -G 'https://graph.facebook.com/${GRAPH_API_VERSION}/me/accounts' \
   --data-urlencode "access_token=$ACCESS_TOKEN" \
   -o pages.json
 IG_USER_ID=$(jq -r '.data[0].instagram_business_account.id' pages.json)
 echo "ig_user_id=$IG_USER_ID"
 
 # 2. メディア一覧（pagination 対応: next を辿る）
-NEXT="https://graph.facebook.com/v20.0/${IG_USER_ID}/media?fields=id,caption,media_url,media_type,timestamp,permalink&access_token=${ACCESS_TOKEN}&limit=100"
+NEXT="https://graph.facebook.com/${GRAPH_API_VERSION}/${IG_USER_ID}/media?fields=id,caption,media_url,media_type,timestamp,permalink&access_token=${ACCESS_TOKEN}&limit=100"
 > media.ndjson
 while [ -n "$NEXT" ] && [ "$NEXT" != "null" ]; do
   curl -s "$NEXT" -o page.json
@@ -29,7 +31,7 @@ while [ -n "$NEXT" ] && [ "$NEXT" != "null" ]; do
 done
 
 # 3. 短期 token (1h) を長期 token (60d) に交換
-curl -G 'https://graph.facebook.com/v20.0/oauth/access_token' \
+curl -G 'https://graph.facebook.com/${GRAPH_API_VERSION}/oauth/access_token' \
   --data-urlencode 'grant_type=fb_exchange_token' \
   --data-urlencode "client_id=$APP_ID" \
   --data-urlencode "client_secret=$APP_SECRET" \
@@ -56,3 +58,5 @@ LONG_TOKEN=$(jq -r .access_token long_token.json)
 - Instagram Graph API は Business / Creator 限定。個人アカウントは「データダウンロード」機能のみ
 - レート制限: 1 時間あたり 200 calls / user
 - 開発モード（App Review 未通過）では追加した「テスター」ユーザーのみアクセス可。公開アプリ化には App Review が必要
+- Graph API version は約 2 年で deprecation cycle に入る（[Graph API changelog](https://developers.facebook.com/docs/graph-api/changelog)）。定期実行スクリプトでは URL に固定埋め込みせず環境変数で切り替えられるようにする
+- 長期 token も 60 日で失効するため、定期実行で使うなら期限前に `fb_exchange_token` で更新する cron / scheduler を別途用意する

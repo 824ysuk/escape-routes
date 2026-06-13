@@ -44,6 +44,6 @@ duckdb -c "SELECT category, SUM(amount) AS total FROM read_csv_auto('huge.csv') 
 ## ハマりポイント
 
 - **SQLite `.import` は全カラムを TEXT として保存**: 数値比較が文字列比較になり結果が狂う → `CAST(amount AS REAL)` で明示
-- header の有無で `.import` の挙動が変わる。1 行目が data の場合は `.headers off`
-- DuckDB の `read_csv_auto` は型推論が賢く、中間テーブル不要で速い
+- `.import` の header skip 挙動は version 依存。SQLite 3.32+ の `.import --csv huge.csv records` は **空 table への import 時のみ** 1 行目を header として列名に使う。既存 table への追記時は header もデータとして入る。事前に table を作らない運用にするか、`tail -n +2 huge.csv | sqlite3 ...` で header を落として import する方が確実（[SQLite CLI: CSV Import](https://www.sqlite.org/cli.html#csv_import)）
+- 型推論・header 検知・quote 内 newline・引用符 escape の総合的な堅さでは DuckDB の `read_csv_auto` が優位。新規導入なら DuckDB を第一選択にする
 - SQLite `.import` は CSV の quote 内 newline を扱えない場合あり → DuckDB を使う

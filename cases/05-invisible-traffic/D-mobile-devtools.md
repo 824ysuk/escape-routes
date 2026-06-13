@@ -20,9 +20,11 @@
 1. Android Studio で対象プロジェクトを開く
 2. Android 端末の 設定 → デベロッパーオプション → USB デバッグを ON
 3. 端末を USB 接続、PC 側で USB デバッグ認証 prompt を承認
-4. Android Studio で `Run → Profile 'app'` を選択してデバッグビルドを起動
-5. 画面下部 Profiler タブ → Network セクション
-6. すべての OkHttp / HttpURLConnection 経由通信が時系列で表示
+4. `Run → Run 'app'` で debuggable build を起動
+5. `View → Tool Windows → App Inspection` を開く
+6. App Inspection ペインの **「Network Inspector」** タブで OkHttp / HttpURLConnection / Java HttpClient 経由のリクエストが時系列表示
+
+注: Android Studio Flamingo (2022.2.1) 以降、旧 Profiler の Network タブは廃止され、Network Inspector（App Inspection 配下）に分離された。Hedgehog / Iguana / Jellyfish 等の現行版では旧 Profiler の Network UI は存在しない（[Network Inspector docs](https://developer.android.com/studio/preview/features/network-inspector) / 移行前の旧 [Network Profiler docs](https://developer.android.com/studio/debug/network-profiler)）。
 
 ## 期待出力
 
@@ -32,5 +34,5 @@
 ## ハマりポイント
 
 - **iOS Web Inspector は WKWebView 内の通信 + debug build 限定**。TestFlight / App Store ビルドでは Web インスペクタが無効
-- **Android Network Profiler は OkHttp / HttpURLConnection 経由のみ**。生 socket / WebSocket / 独自ライブラリは見えない → [mitmproxy（A）](A-mitmproxy.md)にフォールバック
+- **Android Network Inspector は OkHttp / HttpURLConnection / Java HttpClient 経由のみ**。生 socket / WebSocket / 独自ライブラリは見えない → [mitmproxy（A）](A-mitmproxy.md)にフォールバック
 - USB デバッグの認証 prompt を承認しないと端末が認識されない

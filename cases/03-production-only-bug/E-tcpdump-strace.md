@@ -49,3 +49,7 @@ sudo dtruss -p $(pgrep -f myapp) 2>&1 | grep -E 'connect|read|write'
 - strace の出力は大量（数 GB / 分）。`-e` で必要な syscall に絞る
 - macOS では SIP の制約で `any` インターフェース取れないことあり → 個別インターフェース指定（`-i en0`）
 - 長時間観察は循環バッファ必須（`-C` `-W` `-G`）
+- **pcap の取り扱い**: 平文 HTTP は Authorization / Cookie / PII を全て含み、TLS でも SNI / ClientHello / 接続パターンが残る。`/tmp` 直書きは world-readable で事故源。書き出し先は `install -d -m 700 /var/tmp/pcap-$USER` で専用 dir を作り、解析後 `shred -u`（macOS は `rm -P`）で破棄。S3 等共有 storage に上げない（[OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)）
+- 本番では `-s 0` 既定でディスクが即埋まる。header のみで足りるなら `-s 256` 等で payload を切り詰める（[tcpdump(1)](https://www.tcpdump.org/manpages/tcpdump.1.html)）
+- `tcpdump -i any` は Linux の cooked-mode で VLAN tag / 一部 L2 情報を取りこぼす。L2 情報が必要なら個別 IF + BPF filter（高トラフィック環境のディスク圧迫対策にもなる）
+- HTTP/3 (QUIC = UDP 443) を観察対象に含めるなら `'(tcp or udp) port 443'` の filter にする。`tcp port 443` だけでは pass-through

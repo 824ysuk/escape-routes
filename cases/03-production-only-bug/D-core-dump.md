@@ -12,9 +12,26 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 
 ```bash
 ulimit -c unlimited            # shell session 限定
+
+# Ubuntu 20.04+ / Debian 12+ / RHEL 8+ は kernel.core_pattern が
+#   |/lib/systemd/systemd-coredump %P %u %g %s %t %c %h
+# になっており、systemd-coredump 経由で journald 集約される。
+# まずはこちらの標準経路で取得を試す方が安全 (file 上書きで他サービスの
+# core 集約が壊れない)。
+coredumpctl list                       # 既存 core 一覧
+coredumpctl gdb <PID|exe>              # 該当 core を gdb で開く
+coredumpctl dump <PID> > /tmp/core.bin # file に書き出したいとき
+
+# どうしても /tmp/core-* file 形式に切り替えるなら、元 pattern を必ず退避してから
+ORIG_PATTERN=$(cat /proc/sys/kernel/core_pattern)
 echo '/tmp/core-%e.%p' | sudo tee /proc/sys/kernel/core_pattern
-# 永続化
-echo 'kernel.core_pattern = /tmp/core-%e.%p' | sudo tee /etc/sysctl.d/50-coredump.conf
+# 復元 (作業終了後):
+# echo "$ORIG_PATTERN" | sudo tee /proc/sys/kernel/core_pattern
+
+# 永続化は systemd-coredump.conf 経由 (Storage=external 等) を推奨。
+# /etc/sysctl.d/ で core_pattern を直接書き換えると distro 既定の
+# systemd-coredump 集約が無効化される副作用がある。
+sudo systemctl edit --full systemd-coredump@.service   # 必要に応じて Storage 等を調整
 echo '* soft core unlimited' | sudo tee -a /etc/security/limits.conf
 echo '* hard core unlimited' | sudo tee -a /etc/security/limits.conf
 ```
@@ -74,3 +91,4 @@ dlv core /path/to/binary /tmp/core-myapp.1234
 - macOS の `gdb` は codesign が必要 → `lldb` を使う方が楽
 - core dump はサイズが大きい（数 GB〜）→ disk full に注意
 - `ulimit -c unlimited` は **shell session 限定**。systemd 配下のサービスは `LimitCORE=infinity` を unit file に追加
+- 現代 distro は `core_pattern` を `|systemd-coredump` / `|apport` の pipe 形式で初期化している。file 出力に上書きすると (a) journald 集約が無効化、(b) 同居サービスの core が `/tmp` に溢れる、(c) 永続化 conf を残すと再起動後も副作用が続く。安全な手順は **(1) `coredumpctl` 経由を試す → (2) どうしても file 出力したいときだけ元 pattern を退避してから書き換え → (3) 作業終了後に必ず復元**（[systemd-coredump(8)](https://man7.org/linux/man-pages/man8/systemd-coredump.8.html) / [coredump.conf(5)](https://man7.org/linux/man-pages/man5/coredump.conf.5.html)）

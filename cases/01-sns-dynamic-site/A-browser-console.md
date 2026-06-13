@@ -22,23 +22,35 @@
   ])];
   console.log(`${urls.length} 件の URL を検出`);
   if (!urls.length) { console.warn('URL が見つかりません'); return; }
+  // URL を別ファイル urls.txt に書き出し、shell 側は xargs で読む。
+  // URL に "" / $() / ` が混入してもシェル展開されない経路にする。
+  const urlsTxt = urls.join('\n') + '\n';
   const script = [
     '#!/bin/bash',
+    'set -euo pipefail',
     'mkdir -p downloaded && cd downloaded',
-    ...urls.map((u, i) => `curl -# -o "${String(i + 1).padStart(3, '0')}.jpg" "${u}"`)
+    "i=0; while IFS= read -r u; do",
+    '  i=$((i+1))',
+    '  # Content-Type に従って拡張子を決める (image/* 以外は .bin 化)',
+    "  curl -# --remote-header-name -fL -o \"$(printf '%03d.bin' $i)\" \"$u\" || echo \"fail: $u\" >&2",
+    'done < ../urls.txt',
   ].join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([script], { type: 'text/plain' }));
-  a.download = 'download.sh';
-  a.click();
+  const dl = (blob, name) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+  };
+  dl(new Blob([urlsTxt], { type: 'text/plain' }), 'urls.txt');
+  dl(new Blob([script], { type: 'text/plain' }), 'download.sh');
 })();
 ```
 
 ## 期待出力
 
 - Console に `42 件の URL を検出` のような件数表示
-- Downloads フォルダに `download.sh`（数 KB〜数十 KB）が保存される
-- `bash ~/Downloads/download.sh` を実行 → `downloaded/` 配下に `001.jpg`, `002.jpg`, ... と連番で画像保存
+- Downloads フォルダに `urls.txt` と `download.sh`（数 KB〜数十 KB）が保存される
+- `urls.txt` と `download.sh` を同じ directory に置いて `bash ./download.sh` を実行 → `downloaded/` 配下に `001.bin`, `002.bin`, ... と連番で保存
 - 各ファイルで curl の進捗バー（`#####`）が表示される
 
 ## ハマりポイント
@@ -47,3 +59,5 @@
 - Safari は Blob URL の自動ダウンロードに制約あり → 失敗時は `console.log(urls.join('\n'))` で URL を手動コピー → ターミナルで `curl -O`
 - iOS Safari の DevTools は macOS Safari からの接続が必要（端末単独不可）
 - `<picture>` / `<source>` を使うサイトでは `<img>` だけ拾うと取りこぼし。上のコードは両方考慮
+- セキュリティ警告: 生成された `download.sh` は実行前に必ず内容を目視確認する。URL を文字列展開で `curl ".."` に埋め込む書き方は、URL 中に `$()` / `` ` `` / `"` が含まれた場合に任意コード実行へつながる。本コードでは URL を別ファイル `urls.txt` に書き出して `while read` で読み込ませることで、シェル展開を経由しない経路にしている（参考: [OWASP Command Injection](https://owasp.org/www-community/attacks/Command_Injection)）
+- 拡張子を `.jpg` 固定にすると video / webp / heic が混じる場合に Content-Type と不一致になる。実体に合わせる場合は `curl --remote-header-name` + サーバの `Content-Disposition` か、別途 `file(1)` で判定する

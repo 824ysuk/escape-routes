@@ -11,6 +11,9 @@
 
 1. Charles を起動
 2. メニュー `Proxy → macOS Proxy → ON` を選択（システム全体の通信を Charles 経由に）
+
+    注: ON にすると Slack / VS Code / Homebrew / npm / curl / git over HTTPS 等、macOS の **全アプリの通信** が Charles に向く。Charles を意図せず落とすと「システム全死」状態になる。観察対象を絞るなら、macOS Proxy は **OFF のまま** で端末側（モバイル）の Wi-Fi proxy のみ Charles に向ける運用が安全（[Charles macOS Proxy docs](https://www.charlesproxy.com/documentation/proxying/macos-proxy/)）
+
 3. メニュー `Help → SSL Proxying → Install Charles Root Certificate` を選択
 4. macOS Keychain Access で当該証明書を選択 → 情報を見る → 「信頼」→「この証明書を使用するとき」→「常に信頼」に変更
 5. メニュー `Proxy → SSL Proxying Settings` を開く → "Enable SSL Proxying" を ON
@@ -37,3 +40,7 @@
 - Charles 無料版は 30 分でセッション切れ。長時間観察するなら有料ライセンス必須
 - SSL Proxying Settings に追加していないホストは「Unknown」と表示されて中身が見えない
 - Proxyman は macOS のみ（Windows / Linux 版はない）
+- **使用後の後始末は 3 点セット**（戻し忘れると Charles 停止後に通信全死、または CA を残したまま [`Charles Root Certificate` の秘密鍵](https://www.charlesproxy.com/documentation/proxying/ssl-proxying/) が漏洩した場合に任意 TLS 通信を MITM される）:
+    1. メニュー `Proxy → macOS Proxy → OFF`
+    2. Keychain Access で `Charles Root Certificate` を削除（または「常に拒否」へ）
+    3. モバイル端末側の Wi-Fi proxy 設定を OFF + 証明書削除（iOS は「証明書信頼設定で OFF」、Android は「ユーザー証明書 → mitmproxy/Charles を削除」）

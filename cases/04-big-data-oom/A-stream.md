@@ -48,7 +48,9 @@ await pipeline(
       cb(null, { id: row.id, amount: Number(row.amount) * 1.1 });
     }
   }),
-  stringify({ header: true }),
+  // columns を明示すると Transform から流れてくる object の key 順に
+  // 依存せずに列順が固定される (csv-stringify 公式推奨)
+  stringify({ header: true, columns: ['id', 'amount'] }),
   createWriteStream('out.csv')
 );
 console.log('done');
@@ -68,10 +70,11 @@ with open('huge.csv', newline='') as fin, open('out.csv', 'w', newline='') as fo
         writer.writerow({'id': row['id'], 'amount': float(row['amount']) * 1.1})
 
 # pandas の場合は chunksize で逐次処理
+# 最初の chunk だけ header を書き、以降は追記 (header=False) する
 # import pandas as pd
-# for chunk in pd.read_csv('huge.csv', chunksize=10_000):
+# for i, chunk in enumerate(pd.read_csv('huge.csv', chunksize=10_000)):
 #     chunk['amount'] = chunk['amount'] * 1.1
-#     chunk.to_csv('out.csv', mode='a', header=False, index=False)
+#     chunk.to_csv('out.csv', mode='w' if i == 0 else 'a', header=(i == 0), index=False)
 ```
 
 **Node.js（JSON 配列、stream-json）**:
@@ -129,5 +132,6 @@ with open('huge.json', 'rb') as f:
 - backpressure: 消費側（write）が遅いと内部バッファが溜まる → `highWaterMark` を `16` から `64` 程度（object mode の場合、object 数）に調整
 - header が無い CSV は `columns: false` にして row を配列で扱う
 - ESM / CJS 互換: `package.json` の `"type": "module"` か `.mjs` 拡張子で ESM 化
-- pandas の `chunksize` は内部で全件読まないため OOM を回避できる
+- csv-stringify は `header: true` 単独だと最初に流れてきた object のキー順から列名を推論する。Transform を複数挟むときに列順が崩れる事故が起きやすいので、`columns: [...]` を併用して列定義を固定する（[csv-stringify columns option](https://csv.js.org/stringify/options/columns/)）
+- pandas の `chunksize` は内部で全件読まないため OOM を回避できる。append 例は `header=(i == 0)` で最初の chunk だけ header を書く形が必要（全 chunk `header=False` だと header の無い CSV になり、後段 `csv.DictReader` で header が data として扱われる）
 - 巨大 JSON は構造による: `[{...}, {...}, ...]` 形式は stream-json / ijson で逐次化、改行区切り（JSONL = 1 行 1 JSON）なら Node.js は `readline`、Python は `for line in f: json.loads(line)` で済む

@@ -42,6 +42,10 @@ curl -H "Authorization: Bearer $ACCESS_TOKEN" 'https://api.example.com/orders' -
 # 4. refresh で延命
 REFRESH_TOKEN=$(jq -r .refresh_token token.json)
 curl -X POST 'https://oauth.example.com/token' -d 'grant_type=refresh_token' -d "refresh_token=$REFRESH_TOKEN" -d "client_id=$CLIENT_ID" -o token.json
+# response に新しい refresh_token が含まれた場合は必ず置き換える (rotation 対応プロバイダ)
+NEW_RT=$(jq -r '.refresh_token // empty' token.json)
+[ -n "$NEW_RT" ] && REFRESH_TOKEN="$NEW_RT"
+chmod 600 token.json
 ```
 
 ## 期待出力
@@ -54,5 +58,6 @@ curl -X POST 'https://oauth.example.com/token' -d 'grant_type=refresh_token' -d 
 
 - polling 間隔は `interval` 秒以上。`slow_down` 受信時は `interval` を 5 秒ずつ増やす（上のコードに実装済み）
 - `access_token` の `expires_in` は 1 時間程度が典型。`refresh_token` で再取得する処理が運用必須
-- **PKCE は Device Flow では任意**（RFC 8628 仕様）。authorization code flow では推奨
-- `token.json` には access_token / refresh_token が平文で残る。`cookies.txt` 同様 **`.gitignore` に追加** し、漏洩時は即 revoke
+- Refresh token rotation: Auth0 / Okta 等は rotation を有効化すると、古い refresh token を再利用した時点でファミリー全体を revoke する設計（[RFC 9700 §2.2.2](https://datatracker.ietf.org/doc/html/rfc9700#section-2.2.2) / [Auth0 docs](https://auth0.com/docs/secure/tokens/refresh-tokens/refresh-token-rotation)）。上のコードでは response の新 `refresh_token` を必ず使う形にしている
+- PKCE: RFC 8628 自体は PKCE を必須化していないが、device code 漏洩攻撃（[RFC 8628 §5.3-5.6](https://datatracker.ietf.org/doc/html/rfc8628#section-5)）対策で provider が要求することがある。OAuth 2.1 draft / RFC 9700 (2025) では authorization code flow で PKCE は MUST
+- `token.json` には access_token / refresh_token が平文で残る。`cookies.txt` 同様 **`.gitignore` に追加** + `chmod 600 token.json` で同一マシンの他ユーザー読み取り防止。漏洩時は [RFC 7009](https://datatracker.ietf.org/doc/html/rfc7009) の `/revoke` エンドポイント（Google: `https://oauth2.googleapis.com/revoke`、Auth0: `/oauth/revoke` 等）に refresh_token を POST して revoke

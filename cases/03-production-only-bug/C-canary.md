@@ -38,6 +38,17 @@ spec:
   replicas: 10
   strategy:
     canary:
+      # trafficRouting なしだと setWeight は実トラフィック分配にならず、
+      # 「canary 用 pod を 1% 相当だけ作って Service の selector が両方を拾う」
+      # 動作になる (= pod 数比例 / kube-proxy 確率分配)。1% 厳密に分けるには
+      # trafficRouting で Istio / NGINX / ALB / SMI / Traefik を指名する。
+      canaryService: api-server-canary
+      stableService: api-server-stable
+      trafficRouting:
+        istio:
+          virtualService:
+            name: api-server
+            routes: [primary]
       steps:
       - setWeight: 1
       - pause: { duration: 30m }
@@ -76,6 +87,7 @@ kubectl argo rollouts abort api-server     # 問題あれば stable に戻す
 
 ## ハマりポイント
 
-- 1% でも DEBUG ログに PII を含む可能性。事前確認 + マスク filter を log shipper に設定
+- `setWeight` を実トラフィック分配に変えるには [`strategy.canary.trafficRouting`](https://argoproj.github.io/argo-rollouts/features/traffic-management/)（Istio / NGINX / ALB / SMI / Traefik 等）が必須。trafficRouting なしだと pod 数比例（replica count ベース）でしか分配されず、「1% に絞る」運用には届かない
+- 1% でも DEBUG ログに PII / token / Authorization が混入する。マスク filter を log shipper に設定するだけでは GDPR / CCPA / 個人情報保護法 の最小収集原則を満たしにくい。最低 (a) DEBUG でも body は hash + length のみ、(b) canary 期間の log retention を 72h 以下、(c) log への access を audit log で記録（[GDPR Art.5(1)(c)](https://gdpr-info.eu/art-5-gdpr/) / [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)）
 - 1% でも total RPS が高ければ絶対数は十分多い（10k RPS なら 100 RPS）
 - 自動 rollback には Argo Rollouts の [AnalysisTemplate](https://argoproj.github.io/argo-rollouts/features/analysis/) を別途定義

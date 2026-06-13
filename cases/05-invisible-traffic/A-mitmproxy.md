@@ -29,6 +29,19 @@ mitmweb --listen-port 8080
 #    iOS: 設定 → 一般 → VPN とデバイス管理 → mitmproxy → インストール
 #         さらに 設定 → 一般 → 情報 → 証明書信頼設定 で mitmproxy CA を ON
 #    Android: 設定 → セキュリティ → 暗号化と認証情報 → 証明書をインストール → CA 証明書
+#
+# 注: Android 7 (API 24) 以降は targetSdk 24+ のアプリは user trust store を
+#     無視するのが既定。ブラウザは復号できるがアプリ通信は復号できない。
+#     アプリ通信を復号するには以下のいずれかが必要:
+#       (a) 自社 APK: network_security_config.xml に
+#           <trust-anchors><certificates src="user"/></trust-anchors>
+#           を debug build に追加 ([Android Network Security Config](
+#           https://developer.android.com/privacy-and-security/security-config))
+#       (b) Emulator: emulator -writable-system で system trust store に push
+#           ([mitmproxy: Install on Android](
+#           https://docs.mitmproxy.org/stable/howto-install-system-trusted-ca-android/))
+#       (c) 実機・他社 APK: apk-mitm で再パッケージ + Magisk +
+#           MagiskTrustUserCerts 等
 
 # 4. 対象アプリを起動 → mitmweb の Web UI でリクエスト一覧
 # 5. 該当 flow を右クリック → Replay / Modify / "Export as → curl"
@@ -43,6 +56,12 @@ mitmweb --listen-port 8080
 ## ハマりポイント
 
 - **TLS Certificate Pinning** が効いているアプリ（Twitter / 銀行系など）では復号できない。Frida + Objection で pin removal が必要（侵襲度高）
-- **Android 7+ の APK は端末追加 CA を信頼しない仕様**。自社アプリなら build 時に [`network_security_config.xml`](https://developer.android.com/training/articles/security-config) で許可。他社アプリは APK patch が必要
+- **Android 7+ の APK は端末追加 CA を信頼しない仕様**。コードコメント参照
 - **Wi-Fi 専用**: モバイルデータに切り替わると proxy 経由しない → 観察中は端末を機内モード + Wi-Fi ON で運用
-- **mitmproxy 終了後の後片付け**: モバイル端末の Wi-Fi proxy 設定を「OFF」または「自動」に戻さないと以後の通信が全部死ぬ
+- **mitmproxy 終了後の後片付けは 2 点セット**:
+    1. モバイル端末の Wi-Fi proxy 設定を「OFF」または「自動」に戻す（しないと以後の通信が全部死ぬ）
+    2. **CA 証明書の信頼解除**（残置するとその端末のあらゆる HTTPS 通信を後で MITM 可能な状態が残る）:
+        - iOS: 設定 → 一般 → VPN とデバイス管理 → mitmproxy → プロファイル削除 + 設定 → 一般 → 情報 → 証明書信頼設定 で OFF
+        - Android: 設定 → セキュリティ → 暗号化と認証情報 → ユーザー認証情報 → mitmproxy を削除
+        - macOS: Keychain Access で mitmproxy 証明書を削除（または「常に拒否」へ）
+- **export した curl / flow の取り扱い**: "Copy as → curl" で得たコマンドや `--set save_stream_file=...` で永続化した dump には Authorization / Cookie / Set-Cookie / PII が **全て平文** で残る。Slack / git / Issue に貼る前に Authorization と Cookie を環境変数化、レスポンス body の PII（氏名 / メールアドレス / 注文 ID 等）を `sed` 等でマスクする（[mitmproxy: overview features](https://docs.mitmproxy.org/stable/overview-features/#anticache)）
