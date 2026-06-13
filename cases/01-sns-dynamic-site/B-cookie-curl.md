@@ -23,9 +23,18 @@ Netscape 形式の `cookies.txt`（TAB 区切り 7 フィールド = domain / in
 ```bash
 USERNAME='target_account'
 
+# Cookie の csrftoken と一致した値を X-CSRFToken に入れる
+CSRF=$(awk '$6=="csrftoken"{print $7}' cookies.txt | tail -1)
+
 curl -b cookies.txt \
-  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Chromium";v="131", "Not_A Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
   -H 'X-IG-App-ID: 936619743392459' \
+  -H 'X-ASBD-ID: 129477' \
+  -H 'X-CSRFToken: '"$CSRF" \
+  -H 'X-Requested-With: XMLHttpRequest' \
   -H 'Accept: application/json, text/plain, */*' \
   -H 'Accept-Language: ja' \
   -H 'Referer: https://www.instagram.com/' \
@@ -46,3 +55,5 @@ curl -b cookies.txt \
 - 同 IP から短時間に大量リクエストすると一時 ban。1 req/秒以下に抑制
 - `sessionid` の期限は約 90 日。期限切れの兆候: HTTP 302 → `/accounts/login/`
 - `cookies.txt` を git に commit すると session 漏洩。`.gitignore` 必須
+- 2024 年以降、Instagram は `web_profile_info` への匿名アクセスを大幅に制限している。Cookie + UA だけでは 401/403 になることが増えた。上のヘッダ（`X-CSRFToken` / `X-ASBD-ID` / `X-Requested-With` / `sec-ch-ua-*`）を揃えても通らない場合は、JA3/JA4 TLS fingerprint まで合わせる必要がある → [curl-impersonate](https://github.com/lwthiker/curl-impersonate)（`curl_chrome116` 等）に置き換える、または C の特化 OSS（instaloader）にフォールバック
+- UA の Chrome バージョンは `sec-ch-ua` のバージョンと一致させる。古い Chrome 120 を装って `sec-ch-ua: "Chromium";v="131"` を返すと不整合で検知される

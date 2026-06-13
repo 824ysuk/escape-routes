@@ -4,24 +4,27 @@
 
 ```bash
 # Python 3.8+
-pip install playwright playwright-stealth
+pip install playwright 'playwright-stealth>=2,<3'
 playwright install chromium
 # Linux 実行時の OS 依存（libnss3 等）
 playwright install-deps
 # Docker 環境では launch 時に args=['--no-sandbox'] を追加
 ```
 
+注: playwright-stealth は v1.x と v2.x で API 非互換。本記事は v2.x（[2024 年に大幅更新](https://github.com/AtuboDad/playwright_stealth)）前提。requirements.txt では `>=2,<3` でピン留めする。
+
 ## コード
 
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth  # v2.x API
 
 IS_DOCKER = False   # Docker / コンテナなら True
 
 async def run():
-    async with async_playwright() as p:
+    # Stealth.use_async は async context manager。chromium.launch までを wrap する
+    async with Stealth().use_async(async_playwright()) as p:
         browser = await p.chromium.launch(
             headless=True,
             args=['--no-sandbox'] if IS_DOCKER else None,
@@ -32,7 +35,6 @@ async def run():
             locale='ja-JP',
         )
         page = await ctx.new_page()
-        await stealth_async(page)
         await page.goto('https://www.instagram.com/USERNAME/', wait_until='networkidle')
         # 無限スクロールで投稿読み込み
         for _ in range(5):

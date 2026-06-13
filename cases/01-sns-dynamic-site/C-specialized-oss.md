@@ -42,3 +42,4 @@ instaloader --login YOUR_LOGIN_USERNAME stories
 - Chrome 起動中だと Cookie DB が file lock される → Chrome を完全終了してから実行
 - instaloader のストーリーズは `--login` 必須
 - ffmpeg 未 install だと yt-dlp が動画 + 音声 merge に失敗（音声付き動画は別ファイルで残る）
+- `instaloader --login` 直接パスワード入力は Instagram から「不審なログイン (Suspicious activity)」検知でアカウント一時ロック / shadow ban が起きる事例が 2024 年以降増えている。さらに 2FA 有効アカウントでは TOTP の TTY 入力が必須で cron 自動化と相性が悪い。推奨は `instaloader --login user --sessionfile <path>` で 1 度だけログインして session file を以後使い回す、または `--load-session-from cookies.json` でブラウザ session を流用する形（[instaloader troubleshooting: Login error](https://instaloader.github.io/troubleshooting.html#login-error)）
