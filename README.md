@@ -3,6 +3,30 @@
 直接ルート（curl / fetch / アプリを動かす）が詰まったときの代替手段カタログ。
 1 事例 = 1 ファイルで、各代替手段に「前提 / install → コード → 期待出力 → ハマりポイント」を揃える。
 
+## 適用範囲 (Scope)
+
+本 repo が扱う手法は、いずれも **利用者自身のアカウント・自社が運用するサービス・書面で許可された対象** に限って適用する前提で書かれている。事例には Cookie 抽出 / TLS 復号 / 本番 PII の取り出し / 認証 session の自動化 / scraping bypass 等、他者に向ければ違法または規約違反になりうる手法が含まれる。
+
+- 第三者の通信内容を傍受 → 日本: 電気通信事業法 4 条 (通信の秘密)、米国: Wiretap Act (18 U.S.C. § 2511)、EU: GDPR Art. 5・6・25、UK: Investigatory Powers Act 2016 §3
+- 無権限の認証・識別符号窃用・不正ログイン → 日本: 不正アクセス禁止法 3 条・3 条の 2、米国: CFAA (18 U.S.C. § 1030)、UK: Computer Misuse Act 1990 §1
+- SNS の自動取得・大量収集 → 各サービス ToS、不正競争防止法 2 条 1 項 7 号、改正個人情報保護法、GDPR (CNIL の Clearview AI 制裁 €20M 等)
+- 公開 SNS の scraping は CFAA 違反ではないとする判例 (hiQ Labs v. LinkedIn 9th Cir. 2022) がある一方、ToS breach は別途認められた (Bright Data v. Meta N.D. Cal. 2024)
+
+利用者は自己の管轄法令と対象サービスの ToS を確認する責任を負う。判断に迷う場合は実行しない。
+
+参考: [OWASP Web Security Testing Guide §2.4](https://owasp.org/www-project-web-security-testing-guide/) / [ISO/IEC 29147:2018](https://www.iso.org/standard/72311.html)
+
+## 脆弱性に気づいた場合 (Responsible Disclosure)
+
+本 repo の手法を学習目的で実行した結果、対象サービスの脆弱性に到達するケースは現実に起きる。発見した場合は public に投稿する前に以下の経路をたどる。
+
+1. 対象サービスの `https://example.com/.well-known/security.txt` ([RFC 9116](https://datatracker.ietf.org/doc/html/rfc9116)) を確認
+2. 対象が bug bounty 運営中なら HackerOne / Bugcrowd 等で報告
+3. 日本国内サービスは [JPCERT-CC 脆弱性関連情報届出](https://jvn.jp/report/) → IPA → ベンダ調整
+4. coordinated disclosure timeline は [ISO/IEC 29147:2018](https://www.iso.org/standard/72311.html) / [ISO/IEC 30111:2019](https://www.iso.org/standard/69725.html) 準拠の 90 日を default にする
+
+「観察できた」と「公開してよい」は別。
+
 ## なぜこの repo か
 
 - 領域内に閉じた裏技集（[awesome-blackmagic](https://github.com/tnfe/awesome-blackmagic) / [Awesome-Hacking](https://github.com/Hack-with-Github/Awesome-Hacking)）と、問題解決の理論書（[How to Solve It (Polya)](https://en.wikipedia.org/wiki/How_to_Solve_It) / [Lateral Thinking (de Bono)](https://en.wikipedia.org/wiki/Lateral_thinking)）は存在するが、その間（**領域横断 × 具体事例**）は手薄。

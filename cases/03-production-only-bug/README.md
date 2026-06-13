@@ -1,5 +1,7 @@
 # 事例 3: 本番でしか起きないバグを調査したい
 
+> **対象範囲**: 自社が運用する production 環境への観測に限る。本番 PII を local に持ち出す手段 (A) は GDPR Art. 5 / 25 / 32 / 改正個人情報保護法 20 条の規律対象。詳細はトップ [README.md](../../README.md#適用範囲-scope)。
+
 ## 何が起きるか
 
 local や staging で再現しない、production でだけ落ちる / 遅くなる。`docker-compose up` で本番同等の環境を作ろうとしても、データ量・トラフィック・並行性・外部 API の応答が違うため再現コストが膨大。
@@ -12,15 +14,15 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 | [B. 本番にプロファイラを attach](B-profiler.md) | py-spy / async-profiler を稼働中プロセスに | 中（CPU 数 % のオーバーヘッド） |
 | [C. canary deploy + 詳細ログ](C-canary.md) | 1% のトラフィックにだけ debug log を流す | 中（コード変更要） |
 | [D. core dump + デバッガ](D-core-dump.md) | crash 時の core を取り gdb / delve / lldb で attach | 低（事後） |
-| [E. tcpdump / strace](E-tcpdump-strace.md) | syscall・パケット単位で挙動を観察 | 中 |
+| [E. tcpdump / strace / bpftrace](E-tcpdump-strace.md) | syscall・パケット単位で挙動を観察。eBPF (`bpftrace` / `perf trace`) が現代の第一選択 | 中（strace は overhead 大） |
 
 ## 他手段を選ぶ条件
 
 - **A（trace replay）**: 1 件の失敗 request が特定できている、local 環境がそこそこ整っている
 - **C（canary）**: 統計的傾向（一定割合で失敗）、1 件より分布が知りたい
 - **D（core dump）**: crash する、落ちる瞬間のメモリ・スタックが知りたい
-- **E（tcpdump / strace）**: アプリログに何も出ない、OS との境界を疑っている
+- **E（bpftrace / perf / tcpdump）**: アプリログに何も出ない、OS との境界を疑っている。eBPF を default に、strace は overhead 注意
 
 ## 補足
 
-「local で再現する」を諦めて「本番の生きた状態を観察する」に切り替えるとコストが下がる。観察手段はアプリ層（A・B）・OS 層（D・E）・統計層（C）に分かれる。原則論は Google SRE Book の "Effective Troubleshooting" 章が参考になる。
+「local で再現する」を諦めて「本番の生きた状態を観察する」に切り替えるとコストが下がる。観察手段はアプリ層（A・B）・OS 層（D・E）・統計層（C）に分かれる。原則論は [Google SRE Book "Effective Troubleshooting"](https://sre.google/sre-book/effective-troubleshooting/) と [Brendan Gregg - BPF Performance Tools](https://www.brendangregg.com/bpf-performance-tools-book.html) が網羅的。

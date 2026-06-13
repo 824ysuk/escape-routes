@@ -73,3 +73,50 @@ install コマンド、必要なツール、認証情報、version 要件
 ## トーン
 
 観察記録モード（事実 / 観察 / 参照元を並べる）。「ぜひ」「〜こそ」「重要です」等の説得語彙は使わない。
+
+## Secret hygiene
+
+事例には認証 token / Cookie / PII を扱うコード例が含まれる。PR 前に commit 漏洩を機械的に check する。
+
+### .gitignore 共通エントリ
+
+repo の `.gitignore` には以下を含める（既に含まれているものは確認）。
+
+```gitignore
+cookies.txt
+*.har
+state.json
+token.json
+device.json
+long_token.json
+sessions/
+secrets.env
+.env*
+trace.zip
+videos/
+flows
+*.mitm
+*.pem
+*.p12
+*.key
+```
+
+### secret scanning
+
+PR 前に [gitleaks](https://github.com/gitleaks/gitleaks) を走らせる。
+
+```bash
+brew install gitleaks  # macOS
+gitleaks detect --source . --no-banner
+```
+
+### 万一 commit してしまったら
+
+順序が重要。git history から削除する前に **対象 session / token を rotate** する。逆順では rotate 前に攻撃者が利用する。
+
+1. 対象サービスの「他端末からログアウト」「API key 失効」「OAuth refresh_token revoke」を **最初に** 実行
+2. 該当 session で行えた操作のログを確認（リポジトリ / 支払 / メール）
+3. 必要なら所属組織の SOC / IT に通知
+4. `git filter-repo` で history から削除 → force-push（rotate 後）
+
+参考: [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) / [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
