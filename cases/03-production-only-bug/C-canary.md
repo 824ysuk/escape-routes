@@ -106,6 +106,34 @@ spec:
           value: DEBUG
 ```
 
+### Error budget / blast radius の運用上限
+
+AnalysisTemplate が failureLimit で abort してくれるのは「**3 連続 fail 検知後**」。それまでに budget を食い潰す可能性がある。実運用では以下 3 軸の上限を **decision log / runbook** に記載してから canary を回す:
+
+**(a) error budget — SLO ベース**
+
+- SLI: HTTP 5xx rate < 0.5% / month（例）
+- SLO: 99.5% (monthly)
+- Error budget: 0.5% × 30 日 × 24h = 216 分/月 の許容失敗時間
+- canary 消費上限: 月予算の 5%（= 約 10 分相当）→ 1% canary を 30 分回したとき 5xx rate が 2% を超えたら abort
+
+**(b) blast radius — 影響範囲の物理上限**
+
+| 軸 | 上限 |
+|---|---|
+| pod 比率 | 全 replica の 5% 未満（本例: 10 pod 中 1 pod） |
+| リクエスト比率 | 全 traffic の 1% 未満（`trafficRouting` 必須） |
+| ユーザー sticky | 観察期間中、同一 user は canary か stable に固定（cookie / header ベース） |
+| 区域 sticky | 特定 region / tenant に限定（Istio VirtualService の `match` で実装） |
+
+**(c) abort 条件の階層**
+
+| 層 | 条件 | 実装 |
+|---|---|---|
+| 技術的 abort | failureLimit: 3 連続 fail | 本 YAML で実装済 |
+| 監視 alert | SLO 月予算消費 20% 超過 | PagerDuty 通知（人的判断による abort） |
+| kill switch | 全 `setWeight` を 0 にする | runbook へのリンクをチームに共有 |
+
 ```bash
 kubectl apply -f rollout.yaml
 kubectl argo rollouts get rollout api-server --watch
