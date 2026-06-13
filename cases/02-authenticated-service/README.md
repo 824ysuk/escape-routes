@@ -8,20 +8,19 @@
 
 ## 代替手段
 
-| 手段 | 概要 | 再現性 |
-|---|---|---|
-| [A. Cookie 抽出 + curl](A-cookie-curl.md) | ブラウザの認証済み Cookie を抜き出し curl で送る | session 期限まで |
-| [B. 公式 API + OAuth Device Flow](B-device-flow.md) | RFC 8628 でブラウザ操作と CLI を疎結合化 | 恒久的、refresh で延命 |
-| [C. Playwright で完全自動化](C-playwright.md) | TOTP は pyotp で生成 | UI 変更で壊れる |
-| [D. mitmproxy で観察 → 再現](D-mitmproxy.md) | 必要な API call だけ抽出して自前で叩く | API 仕様変更で壊れる |
-| [E. ブラウザ拡張機能で抜く](E-extension.md) | ユーザーがブラウザを使うだけでデータ送信 | ブラウザ開いている間だけ |
+| 手段 | 概要 | 再現性 | 正当性 |
+|---|---|---|---|
+| [A. Cookie 抽出 + curl](A-cookie-curl.md) | ブラウザの認証済み Cookie を抜き出し curl で送る | session 期限まで | 利用者本人の session 流用 (provider 許諾なし、ToS 確認要) |
+| [B. 公式 API + OAuth Device Flow](B-device-flow.md) | RFC 8628 でブラウザ操作と CLI を疎結合化 | 恒久的、refresh で延命 | OAuth 公式 grant type (RFC 8628、provider 許諾済) |
+| [C. Playwright で完全自動化](C-playwright.md) | TOTP は pyotp で生成 | UI 変更で壊れる | 利用者本人の認証自動入力 (provider 許諾なし、ToS で禁止の例あり) |
+| [D. mitmproxy で観察 → 再現](D-mitmproxy.md) | 必要な API call だけ抽出して自前で叩く | API 仕様変更で壊れる | 自分の端末・自分の通信のみ (ToS 観察 OK でも自動化 NG の例あり) |
+| [E. ブラウザ拡張機能で抜く](E-extension.md) | ユーザーがブラウザを使うだけでデータ送信 | ブラウザ開いている間だけ | 利用者本人 (Web Store 公開時は permission justification 要) |
 
 ## 他手段を選ぶ条件
 
-- **B（Device Flow）**: 公式 API が用意されている、長期運用したい
-- **C（Playwright）**: UI を経由する必要がある（API がない）、完全自動化したい
-- **D（mitmproxy 観察）**: API は内部に存在するが公式ドキュメントが無い、軽量に書きたい
-- **E（拡張）**: ユーザーが普段から使うサービスから、副次的にデータを取りたい
+- **B（Device Flow）**: 唯一の provider 公式許諾経路。公式 API が用意されている、長期運用したい
+- **A / C / E（利用者本人スコープ）**: provider 公式許諾はないが利用者自身のデータ。A は最短距離、C は UI 経由が必要・完全自動化したい、E は普段の操作から副次的に収集したい
+- **D（mitmproxy 観察）**: API は内部に存在するが公式ドキュメントが無い、軽量に書きたい。観察自体は自分の通信のみだが ToS で自動化が禁止されている例あり
 
 ## 補足
 

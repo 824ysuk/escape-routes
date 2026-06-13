@@ -135,6 +135,22 @@ window.fetch = new Proxy(origFetch, {
 - ユーザーが対象サイトを操作 → collector のログに `received: {url: 'https://app.example.com/api/orders?...', ts: 1718000000000}` が出る
 - 拡張のデバッグ: `chrome://extensions/` → 拡張のカード → 「サービスワーカー」リンク → DevTools で console / network 観察
 
+## 配布方法の選択肢
+
+本サンプルは sideload（デベロッパーモード）前提。組織・公開目的に応じて以下の経路がある。
+
+| 配布方法 | 対象 | Chrome Web Store 審査 | 利用者操作 | 主な用途 |
+|---|---|---|---|---|
+| sideload (デベロッパーモード) | 開発者本人のみ | なし | 手動で読み込み | 個人実験 / 開発中 |
+| Listed (Public) | 不特定多数 | あり (Limited Use 準拠) | Store からインストール | 一般公開 |
+| Unlisted | URL を知っている人 | あり (Limited Use 準拠) | Store URL からインストール | 社内配布 / 限定公開 |
+| Enterprise Policy (Force Install) | Chrome Enterprise 配下端末 | なし (組織管理者の責任) | 端末側で自動インストール | 業務端末向け強制配布 |
+
+Listed / Unlisted への移行時には manifest の `key` 固定、Limited Use Policy 同意が追加で必要。Enterprise Policy への移行時は組織 OU 設定が必要。詳細は公式 docs を参照:
+
+- [Chrome Enterprise: Force install extensions](https://support.google.com/chrome/a/answer/9296680)
+- [Chrome Web Store: Publishing guidelines](https://developer.chrome.com/docs/webstore/publish/)
+
 ## ハマりポイント
 
 - Manifest V3 の service worker は 30 秒の idle で停止 → 上の `chrome.alarms` で keep-alive
