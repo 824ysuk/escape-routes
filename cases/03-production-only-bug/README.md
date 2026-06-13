@@ -15,6 +15,7 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 | [C. canary deploy + 詳細ログ](C-canary.md) | 1% のトラフィックにだけ debug log を流す | 中（コード変更要） |
 | [D. core dump + デバッガ](D-core-dump.md) | crash 時の core を取り gdb / delve / lldb で attach | 低（事後） |
 | [E. tcpdump / strace](E-tcpdump-strace.md) | syscall・パケット単位で挙動を観察 | 中 |
+| [F. eBPF / bpftrace / perf record](F-ebpf-bpftrace.md) | kernel-level の syscall / CPU flame / ディスク I/O を低 overhead で観察 | 低（eBPF verifier 通過のみ） |
 
 ## 他手段を選ぶ条件
 
@@ -22,6 +23,7 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 - **C（canary）**: 統計的傾向（一定割合で失敗）、1 件より分布が知りたい
 - **D（core dump）**: crash する、落ちる瞬間のメモリ・スタックが知りたい
 - **E（tcpdump / strace）**: アプリログに何も出ない、OS との境界を疑っている
+- **F（eBPF / bpftrace）**: アプリ層では追えない kernel-side の事象（syscall・scheduler・I/O・network）を long-run 観察したい
 
 ## 補足
 
