@@ -1,5 +1,7 @@
 # 事例 2-E: ブラウザ拡張機能で抜く
 
+> **対象範囲**: 拡張をインストールする PC のユーザーが対象サービスの正当な利用者本人であること。共用 PC / キオスク端末 / 他人の PC への install は不正アクセス禁止法 3 条・3 条の 2 (識別符号窃用 / 攻撃用プログラム) に該当しうる。会社支給端末では IT 部門の許可を取る。
+
 ## 前提 / install
 
 - ローカル directory にファイルを 3 つ準備:
@@ -7,6 +9,7 @@
     - `my-extension/background.js`
     - `my-extension/icon.png`（16/48/128 px、任意の透過 PNG）
 - Chrome に install: `chrome://extensions/` → 右上「デベロッパーモード」ON → 「パッケージ化されていない拡張機能を読み込む」→ `my-extension/` を選択
+    - **デベロッパーモードは Chrome Web Store の Limited Use 制約 / Manifest V3 review プロセスを完全に bypass する**。信頼境界が利用者本人に集中する点を理解した上で使う
 - 受信側 collector（Cloud Functions / Cloudflare Workers / 自前 Express）を別途用意
 
 ## コード
@@ -94,6 +97,36 @@ collector の Worker に環境変数 `COLLECTOR_SECRET` を設定（`wrangler se
 ```javascript
 // 拡張のサービスワーカー console から 1 回だけ実行
 chrome.storage.local.set({ collectorSecret: '<長いランダム文字列>' });
+```
+
+`webRequest` は header と URL のみ取得可能で body は取れない。response body が必要なら content script で `fetch` を wrap する:
+
+```javascript
+// content_script.js — 対象ページに inject (manifest.json の content_scripts で指定)
+const origFetch = window.fetch;
+const SENSITIVE_KEYS = /^(password|token|secret|email|phone|ssn|card)/i;
+function redact(obj) {
+  if (Array.isArray(obj)) return obj.map(redact);
+  if (obj && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, SENSITIVE_KEYS.test(k) ? '***' : redact(v)])
+    );
+  }
+  return obj;
+}
+window.fetch = new Proxy(origFetch, {
+  apply: async (target, thisArg, args) => {
+    const resp = await Reflect.apply(target, thisArg, args);
+    const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    if (url.includes('/api/orders')) {
+      const clone = resp.clone();
+      clone.json().then((body) => {
+        chrome.runtime.sendMessage({ type: 'order', body: redact(body) });
+      });
+    }
+    return resp;
+  },
+});
 ```
 
 ## 期待出力
