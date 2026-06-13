@@ -35,6 +35,21 @@ cat $(ls chunk_*.out | sort) > result.out
 rm chunk_*.csv chunk_*.out header.csv
 ```
 
+### 代替: GNU parallel の `--pipe --header` で disk I/O を半減
+
+split で chunk を物理ファイル化せず、stdin から直接渡す書き方。元 CSV を読みながら header 付きで各子プロセスに流すため、上の (1)-(3) と (6) が不要になる:
+
+```bash
+# 各子プロセスに header + N 行ずつ渡す。stdin の先頭行を header として全 chunk に再付与
+parallel --pipe --header : -N 100000 'python process_chunk.py > result.{#}.out' < huge.csv
+
+# 結果を結合
+cat $(ls result.*.out | sort -t. -k2 -n) > result.out
+rm result.*.out
+```
+
+[GNU parallel — --pipe オプション](https://www.gnu.org/software/parallel/parallel_tutorial.html#--pipe) / [examples](https://www.gnu.org/software/parallel/parallel_examples.html)。chunk を後から再利用したいとき以外は、こちらが I/O コスト的に有利。
+
 `process_chunk.py`:
 
 ```python
