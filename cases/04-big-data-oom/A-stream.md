@@ -141,6 +141,57 @@ with open('huge.json', 'rb') as f:
         pass
 ```
 
+**JSONL (1 行 1 JSON、ndjson)** — **大規模データの第一選択**:
+
+JSON 配列 `[{...}, {...}]` は最後の `]` を待たないと parse できず stream に向かない。JSONL (`{...}\n{...}\n`) なら 1 行 = 1 record で `readline` / `for line` で逐次処理できる。生成側は `jq -c '.[]'` で配列 → JSONL に変換可能。
+
+Node.js:
+
+```javascript
+// jsonl-stream.mjs
+import { createReadStream } from 'node:fs';
+import { createInterface } from 'node:readline';
+
+const rl = createInterface({
+  input: createReadStream('huge.jsonl'),
+  crlfDelay: Infinity,   // \r\n / \n 両方を 1 改行として扱う
+});
+
+let count = 0;
+for await (const line of rl) {
+  if (!line.trim()) continue;   // 空行 skip
+  const obj = JSON.parse(line);
+  count += 1;
+  // process(obj);
+}
+console.log(`processed ${count} items`);
+```
+
+Python:
+
+```python
+# jsonl_stream.py
+import json
+
+with open('huge.jsonl') as f:
+    count = 0
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        obj = json.loads(line)
+        count += 1
+        # process(obj)
+print(f'processed {count} items')
+```
+
+JSON 配列を JSONL に変換するワンライナー:
+
+```bash
+jq -c '.[]' huge.json > huge.jsonl
+# 逆変換: jq -s '.' huge.jsonl > huge.json
+```
+
 ## 期待出力
 
 - `out.csv` に変換後 CSV が保存される
@@ -168,9 +219,7 @@ with open('huge.json', 'rb') as f:
 
 ### データ形式
 
-- 巨大 JSON は構造で選択肢が変わる:
-    - **JSONL (ndjson、1 行 1 JSON)** が現代の標準。生成側を JSONL に変えられるなら標準ライブラリだけで済む。Node.js は `readline`、Python は `for line in f: json.loads(line)`
-    - `[{...}, {...}, ...]` 配列形式 (anti-pattern だが既存システムで多い) は stream-json / ijson で逐次化
+- 巨大 JSON は構造による: `[{...}, {...}, ...]` 形式は stream-json / ijson で逐次化、改行区切り (JSONL) なら標準ライブラリで済む (本文の「JSONL」小節参照)
 - データ形式を選べる場合は **Parquet** が最優先 (column pruning + 圧縮で 10-100x 軽い)。`pyarrow.parquet.ParquetFile('x.parquet').iter_batches(batch_size=10000)` で 1 column だけ読める
 
 ### Python の選択指針
