@@ -5,7 +5,7 @@
 **Node.js 版**:
 
 ```bash
-node --version   # v18+ を確認
+node --version   # v20+ 推奨 (v22 LTS で動作確認、v18 は 2025-04 EOL)
 npm install csv-parse csv-stringify
 # package.json に "type": "module" を追加するか、ファイル拡張子を .mjs にする
 ```
@@ -14,7 +14,10 @@ npm install csv-parse csv-stringify
 
 ```bash
 python --version   # 3.8+
-pip install pandas   # chunksize オプションを使う場合
+pip install pandas    # chunksize 用 (歴史的選択肢)
+pip install polars    # 現代的な代替: LazyFrame + streaming engine
+pip install duckdb    # SQL で集計・変換するなら最速
+pip install pyarrow   # zero-copy Arrow streaming
 ```
 
 **JSON 向け追加**:
@@ -48,8 +51,7 @@ await pipeline(
       cb(null, { id: row.id, amount: Number(row.amount) * 1.1 });
     }
   }),
-  // columns を明示すると Transform から流れてくる object の key 順に
-  // 依存せずに列順が固定される (csv-stringify 公式推奨)
+  // columns 明示で Transform 出力の object key 順に依存させない (csv-stringify 公式推奨)
   stringify({ header: true, columns: ['id', 'amount'] }),
   createWriteStream('out.csv')
 );
@@ -69,12 +71,38 @@ with open('huge.csv', newline='') as fin, open('out.csv', 'w', newline='') as fo
     for row in reader:
         writer.writerow({'id': row['id'], 'amount': float(row['amount']) * 1.1})
 
-# pandas の場合は chunksize で逐次処理
-# 最初の chunk だけ header を書き、以降は追記 (header=False) する
+# pandas の chunksize は歴史的選択肢
+# 最初の chunk だけ header=True で書き、以降は append (i == 0 で切り替える)
 # import pandas as pd
 # for i, chunk in enumerate(pd.read_csv('huge.csv', chunksize=10_000)):
 #     chunk['amount'] = chunk['amount'] * 1.1
 #     chunk.to_csv('out.csv', mode='w' if i == 0 else 'a', header=(i == 0), index=False)
+```
+
+**Python (Polars LazyFrame — 現代的)**:
+
+```python
+# stream_polars.py — Polars の streaming engine で OOM 回避 + ベクトル化で 10-100x 速い
+import polars as pl
+
+(
+    pl.scan_csv('huge.csv')                          # LazyFrame として開く (まだ読まない)
+      .with_columns((pl.col('amount') * 1.1).alias('amount'))
+      .select(['id', 'amount'])
+      .sink_csv('out.csv')                           # streaming 実行
+)
+```
+
+**Python (DuckDB — SQL で集計が短く済むなら最速)**:
+
+```python
+import duckdb
+duckdb.sql("""
+    COPY (
+        SELECT id, amount * 1.1 AS amount
+        FROM read_csv('huge.csv')
+    ) TO 'out.csv' (FORMAT CSV, HEADER)
+""")
 ```
 
 **Node.js（JSON 配列、stream-json）**:
@@ -116,7 +144,11 @@ with open('huge.json', 'rb') as f:
 ## 期待出力
 
 - `out.csv` に変換後 CSV が保存される
-- `wc -l huge.csv` と `wc -l out.csv` が同数（empty line を除く）であれば件数照合 OK
+- 件数照合は `wc -l` ではなく論理行数を取る (quoted newline で物理行 ≠ 論理行):
+  ```bash
+  duckdb -c "SELECT COUNT(*) FROM read_csv('huge.csv')"
+  duckdb -c "SELECT COUNT(*) FROM read_csv('out.csv')"
+  ```
 - メモリ使用量を実測:
 
 ```bash
@@ -129,9 +161,25 @@ with open('huge.json', 'rb') as f:
 
 ## ハマりポイント
 
-- backpressure: 消費側（write）が遅いと内部バッファが溜まる → `highWaterMark` を `16` から `64` 程度（object mode の場合、object 数）に調整
+### backpressure
+
+- `pipeline()` を使えば backpressure は自動で処理される (`writable.write()` が `false` を返すと内部で pause、`drain` で resume)
+- `highWaterMark` を上げるのは backpressure 解決ではなくバッファ容量増加で、消費側が遅いとメモリ消費が膨らみ OOM リスクが上がる。先に slow consumer 側の最適化 (DB の bulk insert 化、批処理) を検討する
+
+### データ形式
+
+- 巨大 JSON は構造で選択肢が変わる:
+    - **JSONL (ndjson、1 行 1 JSON)** が現代の標準。生成側を JSONL に変えられるなら標準ライブラリだけで済む。Node.js は `readline`、Python は `for line in f: json.loads(line)`
+    - `[{...}, {...}, ...]` 配列形式 (anti-pattern だが既存システムで多い) は stream-json / ijson で逐次化
+- データ形式を選べる場合は **Parquet** が最優先 (column pruning + 圧縮で 10-100x 軽い)。`pyarrow.parquet.ParquetFile('x.parquet').iter_batches(batch_size=10000)` で 1 column だけ読める
+
+### Python の選択指針
+
+- **新規実装は Polars LazyFrame / DuckDB を推奨**。pandas の chunksize は手書きで concat する必要があり、Arrow ベース 2 ツールにメモリ効率で劣る
+- 「pandas の API を維持しつつ stream」が要件なら [Dask](https://docs.dask.org/) が中間解 (`dask.dataframe.read_csv('huge.csv', blocksize='256MB')`)
+
+### その他
+
 - header が無い CSV は `columns: false` にして row を配列で扱う
 - ESM / CJS 互換: `package.json` の `"type": "module"` か `.mjs` 拡張子で ESM 化
-- csv-stringify は `header: true` 単独だと最初に流れてきた object のキー順から列名を推論する。Transform を複数挟むときに列順が崩れる事故が起きやすいので、`columns: [...]` を併用して列定義を固定する（[csv-stringify columns option](https://csv.js.org/stringify/options/columns/)）
-- pandas の `chunksize` は内部で全件読まないため OOM を回避できる。append 例は `header=(i == 0)` で最初の chunk だけ header を書く形が必要（全 chunk `header=False` だと header の無い CSV になり、後段 `csv.DictReader` で header が data として扱われる）
-- 巨大 JSON は構造による: `[{...}, {...}, ...]` 形式は stream-json / ijson で逐次化、改行区切り（JSONL = 1 行 1 JSON）なら Node.js は `readline`、Python は `for line in f: json.loads(line)` で済む
+- Node.js v22+ は `Readable.toWeb()` / `Readable.fromWeb()` で Web Streams API (fetch の `response.body` 等) と相互運用可能
