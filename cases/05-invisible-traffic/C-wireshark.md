@@ -1,14 +1,16 @@
 # 事例 5-C: Wireshark / tshark
 
+> **対象範囲**: 自分の端末・自社が運用する network に限る。共用 LAN / オフィスネットワークでの promiscuous mode capture は他人の通信傍受 (電気通信事業法 4 条) に該当しうる。
+
 ## 前提 / install
 
 ```bash
-brew install --cask wireshark   # macOS
+brew install --cask wireshark   # macOS (Wireshark 4.0+ 推奨)
 sudo apt install wireshark tshark   # Linux
 
-# パケットキャプチャ権限（sudo 不要にする）
+# パケットキャプチャ権限 (sudo 不要にする)
 sudo dseditgroup -o edit -a $USER -t user access_bpf   # macOS
-sudo usermod -aG wireshark $USER                       # Linux（再ログイン要）
+sudo usermod -aG wireshark $USER                       # Linux (再ログイン要)
 ```
 
 - 自分のブラウザの TLS 通信を Wireshark で復号したい場合は環境変数 `SSLKEYLOGFILE` を設定 → Chrome / Firefox を起動 → Wireshark の Preferences → Protocols → TLS で同じファイルを指定:
@@ -18,7 +20,7 @@ sudo usermod -aG wireshark $USER                       # Linux（再ログイン
 # 永続化すると以降の全ブラウザ通信の TLS 鍵が同ファイルに append され続け、
 # 鍵 + キャプチャがセットで残ると過去通信が事後復号可能になる。
 export SSLKEYLOGFILE=$HOME/.ssl-key.log
-chmod 600 "$SSLKEYLOGFILE" 2>/dev/null || :
+chmod 600 "$SSLKEYLOGFILE" 2>/dev/null || true
 open -a "Google Chrome"      # macOS
 # Wireshark → Preferences → Protocols → TLS → (Pre)-Master-Secret log filename に $SSLKEYLOGFILE を設定
 ```
@@ -26,26 +28,24 @@ open -a "Google Chrome"      # macOS
 ## コード
 
 ```bash
-# GUI: 特定インターフェース + capture filter で起動
-# HTTP/3 (QUIC) も含めるなら UDP 443 を追加 (HTTP/3 移行済 API ではこちらが主経路)
-sudo wireshark -i en0 -k -f 'host api.example.com and ((tcp or udp) port 443)'
+# GUI: 特定インターフェース + capture filter (BPF) で起動
+sudo wireshark -i en0 -k -f 'host api.example.com and tcp port 443'
 
 # CLI 版 tshark: TLS handshake から接続先 SNI を列挙
-sudo tshark -i any -f 'tcp port 443' -Y 'tls.handshake.type == 1' -T fields -e tls.handshake.extensions_server_name
-
-# HTTP/3 (QUIC) の SNI を取る (TLS handshake は UDP 上で走るため tls.* フィルタには出ない)
-sudo tshark -i any -Y 'quic.tls.handshake.type == 1' -T fields -e quic.tls.handshake.extensions_server_name
+# 注: ECH が成立すると SNI は public name に置換される (下記ハマりポイント参照)
+sudo tshark -i any -f 'tcp port 443' -Y 'tls.handshake.type == 1' \
+  -T fields -e tls.handshake.extensions_server_name
 
 # 実出力例:
 # api.example.com
 # cdn.example.com
 
-# 失敗パターン抽出（RST = 接続リセット）
-sudo tshark -i any -Y 'tcp.flags.reset == 1' -T fields -e ip.src -e ip.dst -e tcp.dstport
+# 失敗パターン抽出 (RST = 接続リセット)
+sudo tshark -i any -Y 'tcp.flags.reset == 1' \
+  -T fields -e ip.src -e ip.dst -e tcp.dstport
 
 # pcap として保存 → 後で GUI で読む
-install -d -m 700 "$HOME/.captures/$(date +%Y%m%d)"
-sudo tshark -i any -f 'host api.example.com' -w "$HOME/.captures/$(date +%Y%m%d)/cap.pcap"
+sudo tshark -i any -f 'host api.example.com' -w /tmp/cap.pcap
 ```
 
 ## 期待出力
@@ -56,10 +56,59 @@ sudo tshark -i any -f 'host api.example.com' -w "$HOME/.captures/$(date +%Y%m%d)
 
 ## ハマりポイント
 
+### TLS 1.3 と SSLKEYLOGFILE
+
+- Wireshark **3.0+** が必要。TLS 1.3 ([RFC 8446](https://datatracker.ietf.org/doc/html/rfc8446)) の復号には [NSS Key Log Format](https://firefox-source-docs.mozilla.org/security/nss/legacy/key_log_format/index.html) 上の **5 種** の secret が必要
+- TLS 1.2 形式: `CLIENT_RANDOM <hex> <master_secret>`
+- TLS 1.3 (always-present): `CLIENT_HANDSHAKE_TRAFFIC_SECRET`, `SERVER_HANDSHAKE_TRAFFIC_SECRET`, `CLIENT_TRAFFIC_SECRET_0`, `SERVER_TRAFFIC_SECRET_0`, `EXPORTER_SECRET`
+- TLS 1.3 early data 使用時のみ追加: `CLIENT_EARLY_TRAFFIC_SECRET`, `EARLY_EXPORTER_SECRET` (合計 7 種、[RFC 9850 §2.1](https://datatracker.ietf.org/doc/html/rfc9850#section-2.1))
+- Chrome 79+ / Firefox 70+ は TLS 1.3 が既定なので、Wireshark 2.x では復号できない
+
+### capture filter (BPF) と display filter の混同
+
+| 段階 | 文法 | 例 | 取れる field |
+|---|---|---|---|
+| capture filter (`-f`) | [BPF (libpcap)](https://www.tcpdump.org/manpages/pcap-filter.7.html) | `'host api.example.com and tcp port 443'` | L2-L4 と payload offset 指定のみ |
+| display filter (`-Y`) | [Wireshark syntax](https://wiki.wireshark.org/DisplayFilters) | `'tls.handshake.type == 1'` | dissector 経由で L7 (`tls.*`, `http.*`) も |
+
+capture 段階で `tls.handshake.type == 1` のような L7 field は使えない (文法エラー)。capture filter は緩く、display filter で絞り込む。
+
+### ECH (Encrypted Client Hello) で SNI が見えなくなる
+
+- [ECH (RFC 9460)](https://datatracker.ietf.org/doc/html/rfc9460) が成立すると ClientHello の SNI 拡張は inner ClientHello に隠蔽される
+- outer ClientHello には public 名 (例: `cloudflare-ech.com`) しか出ない
+- Chrome 117+ / Firefox 118+ / Cloudflare で段階的に有効化済
+- `tls.handshake.extensions_server_name` が常に取れる前提は 2026 年では条件付き
+
+### macOS の `-i any` 制約
+
+- macOS は元々 `-i any` を持たない (BSD 設計起因、SIP は無関係)
+- libpcap 1.10+ / Wireshark 4.0+ で **pktap** 経由の代替: `-i pktap,en0,en1` で複数物理 IF を束ねる
+- `-i pktap,all` で全 IF capture も可能
+
+### HTTP/3 (QUIC) の capture / display filter
+
+- HTTP/3 は UDP 443 上で TLS handshake が走り、`tcp port 443` filter では pass-through
+- capture filter: `'host api.example.com and ((tcp or udp) port 443)'` で TCP / UDP 両方拾う
+- display filter: `quic.tls.handshake.*` を使う (例: `quic.tls.handshake.extensions_server_name` で SNI 抽出)
+- 参考: [Wireshark quic fields](https://www.wireshark.org/docs/dfref/q/quic.html) / [RFC 9000](https://datatracker.ietf.org/doc/html/rfc9000)
+
+### pcap / SSLKEYLOGFILE の operational hygiene
+
+- pcap には DNS query / 認証 Cookie (TLS 復号後) / Authorization header / PII / TCP payload が含まれる
+- `SSLKEYLOGFILE` はパスワード相当の機密で、鍵 + キャプチャがセットで残ると過去通信が事後復号可能
+- 書き出し先は `install -d -m 700 ~/.captures/$(date +%Y%m%d)/` で専用 dir (700) に固定
+- 解析後 `shred -u`（macOS は `rm -P`）で破棄
+- Slack / Issue に貼るときは `editcap -F pcap -s 64 in.pcap out.pcap` で payload を切り詰める ([editcap docs](https://www.wireshark.org/docs/man-pages/editcap.html))
+- `SSLKEYLOGFILE` 後始末: (1) ファイル削除 → (2) `unset SSLKEYLOGFILE` → (3) シェル再起動で残留がないことを確認
+
+### その他
+
 - HTTPS の body は鍵がなければ復号不可能 → アプリのソースが手元になければ `SSLKEYLOGFILE` 経由しか道なし
 - 大量パケットの pcap は GUI フィルタが遅い。CLI で先に絞ってから GUI で開く
-- macOS の SIP 制約で `any` インターフェースが使えないことがある → `-i en0` 等の個別指定
-- **TLS 1.3 ECH (Encrypted Client Hello)** 有効な接続（Chrome の DNS over HTTPS + ECH が効くサイト、Cloudflare backend 等）では outer ClientHello の SNI が空またはダミー（`cloudflare-ech.com` 等）になり、real SNI は暗号化される。`tls.handshake.extensions.encrypted_client_hello` フィルタで ECH 有無を判定（[draft-ietf-tls-esni](https://datatracker.ietf.org/doc/draft-ietf-tls-esni/) / [Cloudflare announcement](https://blog.cloudflare.com/announcing-encrypted-client-hello/)）
-- **HTTP/3 (QUIC)** は TLS handshake が UDP 443 上で走り、`tcp port 443` filter / `tls.handshake.*` フィルタには出ない。capture filter に `(tcp or udp) port 443`、display filter に `quic.tls.handshake.*` を使う（[Wireshark quic fields](https://www.wireshark.org/docs/dfref/q/quic.html) / [RFC 9000](https://www.rfc-editor.org/rfc/rfc9000)）
-- **pcap / SSLKEYLOGFILE の取り扱い**: pcap には DNS query / 認証 Cookie（TLS 復号後）/ Authorization / PII / TCP payload が含まれる。`SSLKEYLOGFILE` はパスワード相当の機密で、鍵 + キャプチャがセットで残ると過去通信が事後復号可能。書き出し先は `~/.captures/YYYYMMDD/`（700）に固定し、解析後 `shred -u` または `rm -P`（macOS）で破棄。Slack / Issue に貼るときは `editcap -F pcap -s 64 in.pcap out.pcap` で payload を切り詰める（[editcap docs](https://www.wireshark.org/docs/man-pages/editcap.html) / [Wireshark TLS docs](https://wiki.wireshark.org/TLS#using-the-pre-master-secret)）
-- `SSLKEYLOGFILE` 後始末: (1) ファイル削除 → (2) `unset SSLKEYLOGFILE` → (3) シェル再起動で残留がないことを確認
+
+### 参考
+
+- [Wireshark Wiki: TLS](https://wiki.wireshark.org/TLS)
+- [Wireshark Wiki: CaptureFilters](https://wiki.wireshark.org/CaptureFilters) / [DisplayFilters](https://wiki.wireshark.org/DisplayFilters)
+- [NSS Key Log Format docs](https://firefox-source-docs.mozilla.org/security/nss/legacy/key_log_format/index.html)

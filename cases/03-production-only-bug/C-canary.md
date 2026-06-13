@@ -27,9 +27,43 @@ docker push registry.example.com/api:debug-canary
 
 ## コード
 
-rollout.yaml:
+rollout.yaml (AnalysisTemplate による自動 rollback 込み):
 
 ```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-error-rate
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: error-rate
+    interval: 1m
+    successCondition: result[0] < 0.01      # 5xx rate が 1% 未満で success
+    failureLimit: 3                          # 3 連続 fail で abort
+    inconclusiveLimit: 2
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring.svc:9090
+        query: |
+          sum(rate(http_requests_total{job="{{args.service-name}}",status=~"5..",rollout="canary"}[5m]))
+            /
+          sum(rate(http_requests_total{job="{{args.service-name}}",rollout="canary"}[5m]))
+  - name: latency-p99
+    interval: 1m
+    successCondition: result[0] < 1.0       # p99 < 1.0s で success
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring.svc:9090
+        query: |
+          histogram_quantile(0.99,
+            sum by (le) (
+              rate(http_request_duration_seconds_bucket{job="{{args.service-name}}",rollout="canary"}[5m])
+            )
+          )
+---
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
@@ -38,10 +72,7 @@ spec:
   replicas: 10
   strategy:
     canary:
-      # trafficRouting なしだと setWeight は実トラフィック分配にならず、
-      # 「canary 用 pod を 1% 相当だけ作って Service の selector が両方を拾う」
-      # 動作になる (= pod 数比例 / kube-proxy 確率分配)。1% 厳密に分けるには
-      # trafficRouting で Istio / NGINX / ALB / SMI / Traefik を指名する。
+      # trafficRouting なしだと setWeight は pod 数比例の確率分配になり「1% に絞る」運用にならない
       canaryService: api-server-canary
       stableService: api-server-stable
       trafficRouting:
@@ -51,7 +82,13 @@ spec:
             routes: [primary]
       steps:
       - setWeight: 1
-      - pause: { duration: 30m }
+      - pause: { duration: 30m }                 # 観察時間枠
+      - analysis:
+          templates:
+          - templateName: canary-error-rate
+          args:
+          - name: service-name
+            value: api-server
       - setWeight: 100
   selector:
     matchLabels:
@@ -87,7 +124,26 @@ kubectl argo rollouts abort api-server     # 問題あれば stable に戻す
 
 ## ハマりポイント
 
-- `setWeight` を実トラフィック分配に変えるには [`strategy.canary.trafficRouting`](https://argoproj.github.io/argo-rollouts/features/traffic-management/)（Istio / NGINX / ALB / SMI / Traefik 等）が必須。trafficRouting なしだと pod 数比例（replica count ベース）でしか分配されず、「1% に絞る」運用には届かない
-- 1% でも DEBUG ログに PII / token / Authorization が混入する。マスク filter を log shipper に設定するだけでは GDPR / CCPA / 個人情報保護法 の最小収集原則を満たしにくい。最低 (a) DEBUG でも body は hash + length のみ、(b) canary 期間の log retention を 72h 以下、(c) log への access を audit log で記録（[GDPR Art.5(1)(c)](https://gdpr-info.eu/art-5-gdpr/) / [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)）
-- 1% でも total RPS が高ければ絶対数は十分多い（10k RPS なら 100 RPS）
-- 自動 rollback には Argo Rollouts の [AnalysisTemplate](https://argoproj.github.io/argo-rollouts/features/analysis/) を別途定義
+### SRE 観点 (Google SRE Book "Embracing Risk" / "Effective Troubleshooting" 参照)
+
+canary には以下 4 軸が必須:
+
+1. **観測可能な KPI 定義** — latency p99, error rate (5xx), saturation のいずれか以上
+2. **error budget からの抜き取り上限** — 月次 SLO 0.1% 違反予算のうち 10-20% を canary に割当
+3. **自動 abort 閾値** — 5xx rate > stable の 1.5x または canary p99 > stable の 2x で auto-rollback
+4. **blast radius の上限** — 時間 × RPS = exposure budget (例: 30 分 × 1% × 10k RPS = 18 万 req)
+
+`successCondition` / `failureLimit` / `inconclusiveLimit` の 3 軸が AnalysisTemplate の中核。
+
+### マスキング層
+
+- 1% でも DEBUG ログに PII を含む可能性
+- **app code 層でマスクする** (log shipper で後段マスクすると app log と APM trace で別実装になり乖離する)。[OpenTelemetry の LogRecordProcessor](https://opentelemetry.io/docs/specs/otel/logs/data-model/) または structlog `processors` で同じ allow-list ロジックを共有
+- Loki の `pipeline_stages.replace` は「保険」と位置付ける
+- 1% でも total RPS が高ければ絶対数は十分多い (10k RPS なら 100 RPS)
+
+### 参考
+
+- [Argo Rollouts AnalysisTemplate](https://argoproj.github.io/argo-rollouts/features/analysis/)
+- [Google SRE Book - Embracing Risk](https://sre.google/sre-book/embracing-risk/)
+- [Google SRE Book - Effective Troubleshooting](https://sre.google/sre-book/effective-troubleshooting/)

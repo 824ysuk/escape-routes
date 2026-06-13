@@ -1,5 +1,31 @@
 # 事例 4-D: 別言語に切り替え（Go と Rust）
 
+## まず検討すべき: 「自前で書く」前に既存実装を使う
+
+「Rust を書く」前に、**Rust 製の [Polars](https://pola.rs/)** や **C++ 製の [DuckDB](https://duckdb.org/)** を Python / Node から呼ぶ選択肢を検討する。PyO3 / N-API 経由でネイティブ速度が出る。実務の 90% はこれで済む。
+
+| 状況 | 推奨 |
+|---|---|
+| Python / Node から呼べばよい | **Polars / DuckDB を呼ぶ** ([04-A](A-stream.md), [04-C](C-sqlite-duckdb.md)) |
+| 既存ライブラリで足りない | Go / Rust 自前実装 (本ファイル) |
+| 配布バイナリ単体が要件 | Go (single binary) |
+| 厳密なメモリ制御 / embedded | Rust |
+| 定期実行 / 高 throughput / latency 重視 | Go |
+
+## Go vs Rust の trade-off
+
+| | Go | Rust |
+|---|---|---|
+| GC | あり (sub-ms target) | なし (borrow checker でコンパイル時所有権検証) |
+| 学習コスト | 低 | 高 (lifetime / 借用) |
+| コンパイル時間 | 速い | 遅い (数十秒〜分) |
+| メモリ使用量 | やや多め (GC) | 最小 |
+| ecosystem | 豊富、stdlib 充実 | 急成長中、tokio/async が分裂気味 |
+| `latency` の予測可能性 | GC pause で稀にスパイク | 安定 |
+| 適性 | CLI / web server / cloud | embedded / kernel / 厳密 latency |
+
+CSV を 1 回処理するだけなら Go で十分。定常 service にするなら好み。
+
 ## 前提 / install
 
 ```bash
@@ -95,5 +121,12 @@ cargo run --release
 ## ハマりポイント
 
 - Go の `bufio.Scanner` は quoted field 内の改行を正しく扱えない → CSV では必ず `encoding/csv`
-- Rust は Cargo.toml の dependency 設定で初回 build に時間がかかる（数十秒〜数分）
+- Rust は Cargo.toml の dependency 設定で初回 build に時間がかかる (数十秒〜数分)
 - どちらも release build (`go build` / `cargo build --release`) で速度が大きく変わる
+- 配布バイナリにするなら Go の `CGO_ENABLED=0 go build -ldflags="-s -w"` で 5MB 前後の single static binary
+
+### 参考
+
+- [Go GC guide](https://go.dev/doc/gc-guide)
+- [Rust book](https://doc.rust-lang.org/book/)
+- [Polars (Rust 製 DataFrame、Python/Node bindings)](https://pola.rs/posts/polars_birds_eye_view/)
