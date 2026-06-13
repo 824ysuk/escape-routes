@@ -148,7 +148,7 @@ JSON 配列 `[{...}, {...}]` は最後の `]` を待たないと parse できず
 Node.js:
 
 ```javascript
-// jsonl-stream.mjs
+// jsonl-stream.mjs — readline async iteration (Node.js v11.4.0+、v22 LTS 動作確認)
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 
@@ -170,7 +170,7 @@ console.log(`processed ${count} items`);
 Python:
 
 ```python
-# jsonl_stream.py
+# jsonl_stream.py — 標準ライブラリのみ (Python 3.8+、v3.14 動作確認)
 import json
 
 with open('huge.jsonl') as f:
