@@ -9,10 +9,24 @@ __pycache__/
 *.pyc
 .env
 .env.local
+.env*
+secrets.env
 cookies.txt
 *.pem
 *.p12
 *.key
+*.har
+
+# 認証・session 漏洩源 (各 case で生成される file)
+state.json
+token.json
+device.json
+long_token.json
+sessions/
+trace.zip
+videos/
+flows
+*.mitm
 
 # 転記元の Notion 原稿（private、git で管理しない）
 .notion-source/
