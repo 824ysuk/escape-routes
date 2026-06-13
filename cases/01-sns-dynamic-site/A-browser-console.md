@@ -55,7 +55,8 @@
 
 ## ハマりポイント
 
-- CDN URL の `oe=` パラメータ（UNIX タイムスタンプ）は配信の有効期限。Instagram は 1〜2 時間程度。生成後は即時 `bash` 実行
+- CDN URL の `oe=` パラメータは hex 表記の Unix epoch second (例: `oe=6859ABCD` → `printf '%d\n' 0x6859ABCD` で UTC 秒)。Instagram は配信から 1〜2 時間で失効。生成後は即時 `bash` 実行
+- 認可は `oe=` (有効期限) + `oh=` (hmac) のペア。**IP / referrer 縛りは無い** ので、ブラウザで取得した URL を別マシンから curl しても期限内なら取れる
 - Safari は Blob URL の自動ダウンロードに制約あり → 失敗時は `console.log(urls.join('\n'))` で URL を手動コピー → ターミナルで `curl -O`
 - iOS Safari の DevTools は macOS Safari からの接続が必要（端末単独不可）
 - `<picture>` / `<source>` を使うサイトでは `<img>` だけ拾うと取りこぼし。上のコードは両方考慮
