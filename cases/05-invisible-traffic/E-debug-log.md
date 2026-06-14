@@ -28,7 +28,9 @@ install 不要、対象アプリのソースが手元にある前提
 ### Python (requests)
 
 ```python
+import base64
 import http.client as http_client
+import json
 import logging
 import re
 import requests
@@ -49,10 +51,27 @@ SAFE_HEADERS = {
 # 残存 secret 検出 (JWT, base64-ish, hex token)
 SECRET_LIKE = re.compile(r'(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|[A-Fa-f0-9]{32,})')
 
+def safe_jwt(value: str) -> str:
+    if not value.lower().startswith('bearer '):
+        return '***MASKED***'   # 不明 scheme は完全マスク
+    token = value.split(None, 1)[1]
+    parts = token.split('.')
+    if len(parts) != 3:
+        return '***MASKED***'   # JWT 形式でない
+    try:
+        # base64url padding 補正
+        h = parts[0] + '=' * (-len(parts[0]) % 4)
+        header = json.loads(base64.urlsafe_b64decode(h))
+    except Exception:
+        return '***MASKED***'
+    return f'Bearer {json.dumps(header, separators=(",", ":"))}.***.***'
+
 def mask_headers(headers):
     out = {}
     for k, v in headers.items():
-        if k.lower() in SAFE_HEADERS:
+        if k.lower() == 'authorization':
+            out[k] = safe_jwt(v)
+        elif k.lower() in SAFE_HEADERS:
             # 値に secret-like が混じっていないか確認
             if isinstance(v, str) and SECRET_LIKE.search(v):
                 out[k] = '***SECRET-LIKE***'
@@ -85,11 +104,25 @@ const SAFE_HEADERS = new Set([
   'date', 'server', 'via', 'x-request-id', 'x-correlation-id',
 ]);
 
+function safeJwt(value) {
+  if (!value?.toLowerCase().startsWith('bearer ')) return '***MASKED***';
+  const token = value.slice(7).trim();
+  const parts = token.split('.');
+  if (parts.length !== 3) return '***MASKED***';
+  try {
+    const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+    return `Bearer ${JSON.stringify(header)}.***.***`;
+  } catch {
+    return '***MASKED***';
+  }
+}
+
 function maskHeaders(headers) {
   return Object.fromEntries(
-    Object.entries(headers).map(([k, v]) =>
-      [k, SAFE_HEADERS.has(k.toLowerCase()) ? v : '***MASKED***']
-    )
+    Object.entries(headers).map(([k, v]) => {
+      if (k.toLowerCase() === 'authorization') return [k, safeJwt(v)];
+      return [k, SAFE_HEADERS.has(k.toLowerCase()) ? v : '***MASKED***'];
+    })
   );
 }
 
@@ -119,11 +152,33 @@ await safeGet('https://api.example.com/orders', { headers: { 'Authorization': 'B
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptrace"
 	"strings"
 )
+
+func safeJWT(v string) string {
+	if !strings.HasPrefix(strings.ToLower(v), "bearer ") {
+		return "***MASKED***"
+	}
+	parts := strings.Split(strings.TrimSpace(v[7:]), ".")
+	if len(parts) != 3 {
+		return "***MASKED***"
+	}
+	h, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return "***MASKED***"
+	}
+	var header map[string]interface{}
+	if err := json.Unmarshal(h, &header); err != nil {
+		return "***MASKED***"
+	}
+	b, _ := json.Marshal(header)
+	return "Bearer " + string(b) + ".***.***"
+}
 
 func main() {
 	safeHeaders := map[string]bool{
@@ -138,7 +193,9 @@ func main() {
 		DNSDone: func(d httptrace.DNSDoneInfo) { fmt.Printf("DNS: %+v\n", d) },
 		GotConn: func(c httptrace.GotConnInfo) { fmt.Printf("GotConn: %+v\n", c) },
 		WroteHeaderField: func(k string, v []string) {
-			if safeHeaders[strings.ToLower(k)] {
+			if strings.ToLower(k) == "authorization" {
+				fmt.Printf("hdr %s=%s\n", k, safeJWT(v[0]))
+			} else if safeHeaders[strings.ToLower(k)] {
 				fmt.Printf("hdr %s=%v\n", k, v)
 			} else {
 				fmt.Printf("hdr %s=***MASKED***\n", k)
@@ -156,9 +213,9 @@ func main() {
 
 ## 期待出力
 
-- Python: stderr に `2026-06-11 ... INFO GET https://api.example.com/orders headers={'Authorization': '***MASKED***'}` + 続いて urllib3 の DEBUG ログ
-- Node.js: stderr に `GET https://... headers={"authorization":"***MASKED***"}` + `status=200 body={...}`
-- Go: stdout に `hdr Authorization=***MASKED***` `DNS: {...}` `GotConn: {...}` `status: 200`
+- Python: stderr に `2026-06-11 ... INFO GET https://api.example.com/orders headers={'Authorization': 'Bearer {"alg":"RS256","typ":"JWT","kid":"abc123"}.***.***'}` + 続いて urllib3 の DEBUG ログ
+- Node.js: stderr に `GET https://... headers={"authorization":"Bearer {\"alg\":\"RS256\",\"typ\":\"JWT\",\"kid\":\"abc123\"}.***.***"}` + `status=200 body={...}`
+- Go: stdout に `hdr Authorization=Bearer {"alg":"RS256","typ":"JWT","kid":"abc123"}.***.***` `DNS: {...}` `GotConn: {...}` `status: 200`
 
 ## ハマりポイント
 
@@ -173,9 +230,21 @@ func main() {
 - log shipper の collector 側でも 2 段目マスクを設定 (defense-in-depth)
 - 新規 auth scheme (DPoP / HTTP Message Signatures / mTLS Token Binding) を導入した際は allow-list / deny-list を見直す
 
-### JWT bearer の部分開示 (発展)
+### JWT bearer の部分開示
 
-JWT bearer は `header.payload.signature` の 3 部構成。`header` 部 (alg, kid, typ) は signing 設定でありデバッグに有用。全マスクではなく `<jwt header>.***.***` のような部分開示でデバッグ精度が上がる場合がある (例: `alg=none` 攻撃の検知、kid rotation 確認)。
+JWT ([RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519)) は `header.payload.signature` の 3 部構成。`header` 部 (alg, kid, typ) は signing 設定でありデバッグに有用。`payload` と `signature` は PII・token 本体を含むため必ずマスクする。
+
+上記コードの `safe_jwt` / `safeJwt` / `safeJWT` はこれを実装済み。変換結果:
+
+```
+Before: Authorization: ***MASKED***
+After:  Authorization: Bearer {"alg":"RS256","typ":"JWT","kid":"abc123"}.***.***
+```
+
+注意点:
+- decode 結果は **debug 出力のみ**。`alg=none` 等の偽装 header を信用して検証に使わない
+- JWE (暗号化 JWT) は header に `enc` フィールドが含まれる。`alg` + `enc` を表示するとアルゴリズム選択のデバッグ効率が上がる
+- `kid` を表示することで key rotation 直後の `kid not found` エラーを即判別できる
 
 - [RFC 7519 (JWT)](https://datatracker.ietf.org/doc/html/rfc7519)
 - [RFC 7515 (JWS)](https://datatracker.ietf.org/doc/html/rfc7515)
