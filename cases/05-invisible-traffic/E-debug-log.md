@@ -193,7 +193,7 @@ func main() {
 		DNSDone: func(d httptrace.DNSDoneInfo) { fmt.Printf("DNS: %+v\n", d) },
 		GotConn: func(c httptrace.GotConnInfo) { fmt.Printf("GotConn: %+v\n", c) },
 		WroteHeaderField: func(k string, v []string) {
-			if strings.ToLower(k) == "authorization" {
+			if strings.ToLower(k) == "authorization" && len(v) > 0 {
 				fmt.Printf("hdr %s=%s\n", k, safeJWT(v[0]))
 			} else if safeHeaders[strings.ToLower(k)] {
 				fmt.Printf("hdr %s=%v\n", k, v)
