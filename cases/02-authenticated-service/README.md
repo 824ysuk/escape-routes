@@ -16,6 +16,7 @@
 | [D. mitmproxy で観察 → 再現](D-mitmproxy.md) | 必要な API call だけ抽出して自前で叩く | API 仕様変更で壊れる | 自分の端末・自分の通信のみ (ToS 観察 OK でも自動化 NG の例あり) |
 | [E. ブラウザ拡張機能で抜く](E-extension.md) | ユーザーがブラウザを使うだけでデータ送信 | ブラウザ開いている間だけ | 利用者本人 (Web Store 公開時は permission justification 要) |
 | [F. WebAuthn Virtual Authenticator](F-webauthn-virtual-authenticator.md) | W3C WebAuthn L3 §11 の WebDriver Extension で authenticator を仮想化、ceremony を自動化 | テスト目的・自社/自己アカウント限定 | 利用者本人 / 自社サービスのテスト自動化 (ToS 確認要) |
+| [G. WebDriver BiDi (storage / network)](G-webdriver-bidi.md) | W3C 標準の cross-browser protocol で cookie capture / network intercept を protocol level で扱う | Firefox/Chromium で恒久 (Playwright は未対応) | 利用者本人 / 自社テスト自動化 (ToS 確認要) |
 
 ## 他手段を選ぶ条件
 
@@ -23,6 +24,7 @@
 - **A / C / E（利用者本人スコープ）**: provider 公式許諾はないが利用者自身のデータ。A は最短距離、C は UI 経由が必要・完全自動化したい、E は普段の操作から副次的に収集したい
 - **D（mitmproxy 観察）**: API は内部に存在するが公式ドキュメントが無い、軽量に書きたい。観察自体は自分の通信のみだが ToS で自動化が禁止されている例あり
 - **F（WebAuthn Virtual Authenticator）**: 対象サービスが passkey-only / WebAuthn 必須（TOTP は通用しない）。C は TOTP 担当、F は WebAuthn ceremony 自体を仮想化する。ToS が自動化テストを禁じていないことを確認すること
+- **G（WebDriver BiDi）**: A の GUI 拡張依存（EditThisCookie 等）や CDP 直叩き（Chromium 限定）を避け、Firefox/Chrome 共通の protocol level API で cookie / network を扱いたい。Playwright は BiDi 未対応のため Selenium / Puppeteer を採用するときに合致する
 
 ## 補足
 
