@@ -1,6 +1,10 @@
 # 事例 3-H: Pyroscope (continuous profiling) で always-on の時間軸 alignment 観測
 
 > **対象範囲**: 自社が運用する production 環境への観測に限る。agent overhead が稼働 service の SLO に影響する可能性があるため、観測時間枠・overhead budget の合意を取った上で導入する。
+> **第三者データ**: 扱わない（自社サービスへの観測のみ）
+> **PII**: 扱わない（profile は CPU time / memory allocation の集計データ。関数名・行番号等のシンボルのみを含む。本番データ本体は profile に現れない）
+> **適法境界**: 自社が運用するサービスへの観測のみ。第三者サービスへの無権限 agent 挿入は不正アクセス禁止法 3 条に抵触しうる
+> **Disclosure 経路**: N/A（自社インフラ観測のため脆弱性発見性なし）
 
 > **B / F / G との役割分担**: [B (py-spy / async-profiler)](B-profiler.md) は one-shot サンプリングで spike 発生中に手動 attach が必要。[F (eBPF / bpftrace / perf)](F-ebpf-bpftrace.md) は kernel-level の syscall / scheduler / I/O を raw 観測する。[G (OBI)](G-obi-ebpf-otel.md) は protocol level (HTTP/gRPC/SQL) を OpenTelemetry trace 化する。本ファイルは always-on で CPU / memory profile を継続記録し、**時間軸 alignment で過去の spike を事後に query** する手段に特化する。
 

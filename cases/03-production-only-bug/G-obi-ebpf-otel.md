@@ -1,6 +1,10 @@
 # 事例 3-G: OBI (OpenTelemetry eBPF Instrumentation) で out-of-process 計装
 
 > **対象範囲**: 自社が運用するプロダクション環境への観察に限る。eBPF DaemonSet の配備権限が必要。target pod は一切変更しない。詳細はトップ [README.md](../../README.md#適用範囲-scope)。
+> **第三者データ**: 扱わない（自社サービスへの観察のみ）
+> **PII**: 一時的に通過する可能性（HTTP route / SQL クエリ等の protocol-level trace に URL パラメータ・クエリ本体が含まれる場合がある。OTLP Collector の attribute フィルタリングで収集範囲を制限する）
+> **適法境界**: 自社が運用するサービスへの観察のみ。第三者通信への無権限 attach は電気通信事業法 4 条 / 不正アクセス禁止法 3 条に抵触しうる
+> **Disclosure 経路**: N/A（自社インフラ観察のため脆弱性発見性なし）
 
 [E (tcpdump / strace)](E-tcpdump-strace.md) は syscall・packet 単位の観察で、HTTP route や SQL query といった protocol level の情報は見えない。[F (eBPF / bpftrace / perf)](F-ebpf-bpftrace.md) は kernel-side の syscall / CPU flame / disk I/O の system layer 観察に特化する。OBI は eBPF を使いつつも OpenTelemetry pipeline に変換した **protocol-level traces + metrics** (HTTP / HTTP2 / gRPC / SQL / Redis / Kafka) を取得し、target pod のコード・image・config・再起動は一切不要。
 
