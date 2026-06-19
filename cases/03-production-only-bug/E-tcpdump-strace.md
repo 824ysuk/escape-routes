@@ -29,7 +29,7 @@ sudo apt install linux-tools-common linux-tools-$(uname -r)  # perf
 ```
 
 - sudo 権限必須 (または `setcap` で per-binary に capability 付与、下記参照)
-- コンテナ: `kubectl debug` で ephemeral container を attach、または sidecar 追加
+- コンテナ: `kubectl debug` で ephemeral container を attach、または sidecar 追加 (観察ツール非搭載の distroless image で観察 path を確保する前段手順は [事例 7](../07-pod-without-tools/README.md) 参照)
 
 ## コード
 
