@@ -42,18 +42,19 @@
 | 3 | [本番でしか起きないバグを調査したい](cases/03-production-only-bug/README.md) | local で再現できない | 5 |
 | 4 | [巨大データで OOM が出る](cases/04-big-data-oom/README.md) | メモリに収まらない | 5 |
 | 5 | [ブラウザに見えない通信を観察したい](cases/05-invisible-traffic/README.md) | モバイル・他アプリ・暗号化通信 | 5 |
+| 6 | [CI でしか起きない失敗を調査したい](cases/06-ci-only-failure/README.md) | ephemeral runner で state がもう失われている | 4 |
 
 ## 共通パターン
 
-5 事例から抽出される、代替手段を考えるときの発想軸。
+6 事例から抽出される、代替手段を考えるときの発想軸。
 
 | パターン | 一言 | 該当事例 |
 |---|---|---|
-| レイヤーを動かす | HTTP → DOM、API → DB、アプリログ → syscall。抽象を上下させる | 1, 3, 5 |
+| レイヤーを動かす | HTTP → DOM、API → DB、アプリログ → syscall。抽象を上下させる | 1, 3, 5, 6 |
 | ブラウザ session を使う | CLI から再現困難な認証を、ブラウザ経由で済ませる | 1, 2 |
-| 状態を運んで再現 | local 環境を整える代わりに、本番の状態を持ってくる | 3 |
+| 状態を運んで再現 | local 環境を整える代わりに、本番 / runner の状態を持ってくる | 3, 6 |
 | 問題を分割する | 全体を一度に解かない。stream・チャンク・分業 | 4 |
-| 間接ルートに切り替える | 直接アクセスを諦め、proxy・観察ツール・API 経由にする | 2, 5 |
+| 間接ルートに切り替える | 直接アクセスを諦め、proxy・観察ツール・API 経由にする | 2, 5, 6 |
 
 ## 各事例の最小スキーマ
 
@@ -98,6 +99,7 @@ PR で事例追加・既存事例の改善を歓迎します。詳細は [CONTRI
 - 事例 3: [Brendan Gregg — Systems Performance (2nd ed)](https://www.brendangregg.com/sysperfbook.html) / [Google SRE Book](https://sre.google/sre-book/table-of-contents/) / [py-spy](https://github.com/benfred/py-spy) / [async-profiler](https://github.com/async-profiler/async-profiler) / [Argo Rollouts AnalysisTemplate](https://argoproj.github.io/argo-rollouts/features/analysis/)
 - 事例 4: [Designing Data-Intensive Applications](https://dataintensive.net/) / [Node.js Stream Docs](https://nodejs.org/api/stream.html)
 - 事例 5: [mitmproxy ドキュメント](https://docs.mitmproxy.org/stable/) / [Wireshark Wiki](https://wiki.wireshark.org/) / [Android Network Security Config](https://developer.android.com/training/articles/security-config)
+- 事例 6: [GitHub Actions Debug Logging](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/enabling-debug-logging) / [actions/upload-artifact](https://github.com/actions/upload-artifact) / [Simon Willison — Debugging Actions with tmate](https://til.simonwillison.net/github-actions/debug-tmate) / [nektos/act usage / runners](https://nektosact.com/usage/runners.html)
 
 ### 本記事の事例別ツール一覧
 - 事例 1: [yt-dlp](https://github.com/yt-dlp/yt-dlp) / [gallery-dl](https://github.com/mikf/gallery-dl) / [instaloader](https://github.com/instaloader/instaloader) / [Playwright stealth](https://github.com/AtuboDad/playwright_stealth) / [rebrowser-playwright](https://github.com/rebrowser/rebrowser-playwright) / [ScrapingBee](https://www.scrapingbee.com/) / [Bright Data](https://brightdata.com/) / [websocat](https://github.com/vi/websocat) / [Jetstream](https://github.com/bluesky-social/jetstream)
@@ -105,6 +107,7 @@ PR で事例追加・既存事例の改善を歓迎します。詳細は [CONTRI
 - 事例 3: [py-spy](https://github.com/benfred/py-spy) / [async-profiler](https://github.com/async-profiler/async-profiler) / [tcpdump](https://www.tcpdump.org/) / [strace](https://strace.io/) / [Argo Rollouts](https://argoproj.github.io/argo-rollouts/) / [delve](https://github.com/go-delve/delve)
 - 事例 4: [SQLite](https://www.sqlite.org/) / [DuckDB](https://duckdb.org/) / [GNU parallel](https://www.gnu.org/software/parallel/) / [`--max-old-space-size`](https://nodejs.org/api/cli.html#--max-old-space-sizesize-in-mib) / [Eclipse MAT](https://www.eclipse.org/mat/)
 - 事例 5: [Charles Proxy](https://www.charlesproxy.com/) / [Proxyman](https://proxyman.io/) / [Wireshark](https://www.wireshark.org/) / [iOS Web Inspector](https://developer.apple.com/documentation/safari-developer-tools/inspecting-iphone-or-ipad-apps)
+- 事例 6: [mxschmitt/action-tmate](https://github.com/mxschmitt/action-tmate) / [actions/upload-artifact](https://github.com/actions/upload-artifact) / [nektos/act](https://github.com/nektos/act) / [catthehacker/docker_images](https://github.com/catthehacker/docker_images) / [gh CLI](https://cli.github.com/)
 
 ## License
 
