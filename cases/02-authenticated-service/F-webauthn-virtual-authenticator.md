@@ -58,6 +58,7 @@ options.has_resident_key = True       # discoverable credential を許可
 options.has_user_verification = True  # UV capability あり
 options.is_user_verified = True       # UV ceremony を常に成功扱い
 driver.add_virtual_authenticator(options)
+print("[DEBUG] virtual authenticator added")
 
 # 2. (任意) credential を直接 inject — 登録 ceremony をスキップする場合
 credential = Credential.create_non_resident_credential(
@@ -67,11 +68,16 @@ credential = Credential.create_non_resident_credential(
     sign_count=0,
 )
 driver.add_credential(credential)
+print("[DEBUG] credential injected: id=01020304, rp_id=example.com")
 
 # 3. テスト本体 — navigator.credentials.get() / create() が virtual authenticator で完結
 driver.get("https://example.com/login")
 
-# 4. cleanup
+# 4. 登録された credential を確認
+creds = driver.get_credentials()
+print(f"[DEBUG] get_credentials() -> {len(creds)} credential(s)")
+
+# 5. cleanup
 driver.remove_all_credentials()
 driver.remove_virtual_authenticator()
 driver.quit()
@@ -146,9 +152,7 @@ const { chromium } = require('playwright');
 ```
 [DEBUG] virtual authenticator added
 [DEBUG] credential injected: id=01020304, rp_id=example.com
-[DEBUG] navigator.credentials.create() returned PublicKeyCredential
 [DEBUG] get_credentials() -> 1 credential(s)
-[DEBUG] sign_count after assertion: 1
 ```
 
 ### Playwright Node (CDP)
