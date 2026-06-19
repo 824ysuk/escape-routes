@@ -19,6 +19,15 @@ bpftrace --version
 sudo bpftool feature
 ```
 
+## BCC と bpftrace の使い分け
+
+eBPF ツールには主に 2 系統ある（[Brendan Gregg eBPF page](https://www.brendangregg.com/ebpf.html)）:
+
+- **BCC** — 複雑な tool / daemon 向け。Python / Lua から C の BPF プログラムを発行する構造で、`biolatency-bpfcc` 等の既成 tool が豊富
+- **bpftrace** — one-liner / 短い script 向け。AWK-like DSL で手軽に書ける
+
+既成 tool を探すなら BCC（`bpfcc-tools`）を先に確認し、自分で計装スクリプトを書くなら bpftrace から始める。bpftrace の one-liner で表現しきれない複雑なロジックは BCC / libbpf で書く。
+
 ## コード
 
 ### CPU flamegraph（ボトルネック特定）
@@ -97,6 +106,18 @@ sudo bpftrace -e '
 '
 ```
 
+### uprobe（userland 関数の観察）
+
+```bash
+# attach 可能シンボル一覧を確認（実行前に strip されていないか確認）
+bpftrace -l 'uprobe:/bin/bash:*'
+
+# bash の readline 呼び出しを観察
+sudo bpftrace -e 'uprobe:/bin/bash:readline { printf("%d %s called readline\n", pid, comm); }'
+```
+
+kprobe（kernel 関数）・tracepoint（syscall ABI）に並ぶ第三の選択肢。再起動・コード変更なしに任意 binary の userland 関数進入を観察できる。シンボルが strip された binary には attach できないため、`bpftrace -l` で事前に確認する。
+
 ## 期待出力
 
 - `flame.svg`: SVG 形式の flamegraph（ブラウザで開いてクリックで拡大）
@@ -115,7 +136,7 @@ sudo bpftrace -e '
 
 ### kernel version の差異
 
-- probe 名（tracepoint / kprobe の引数名）が kernel version によって変わる
+- kprobe シンボルは kernel version 間で変動する。例: `do_sys_open` は kernel 5.6 以降 `do_sys_openat2` に改名された。Brendan Gregg が指摘するとおり dynamic instrumentation（kprobe）は stable API ではなく、kernel 更新でツールが壊れうる（[Brendan Gregg eBPF page](https://www.brendangregg.com/ebpf.html)）。可搬性が必要な場面では tracepoint（ABI が安定）を優先する
 - `bpftrace -l 'tracepoint:syscalls:sys_enter_openat'` で利用可能な probe を先に確認する
 - CO-RE（Compile Once – Run Everywhere）対応は libbpf / bpftrace 0.16+ 推奨
 
@@ -134,8 +155,10 @@ sudo bpftrace -e '
 
 ### 参考
 
+- [Brendan Gregg - Linux Extended BPF (eBPF) Tracing Tools](https://www.brendangregg.com/ebpf.html)
 - [Brendan Gregg - BPF Performance Tools](https://www.brendangregg.com/bpf-performance-tools-book.html)
 - [iovisor/bcc tools](https://github.com/iovisor/bcc/tree/master/tools)
 - [bpftrace reference guide](https://github.com/bpftrace/bpftrace/blob/master/docs/reference_guide.md)
+- [bpftrace language reference](https://github.com/bpftrace/bpftrace/blob/master/docs/language.md)
 - [Brendan Gregg - FlameGraph](https://github.com/brendangregg/FlameGraph)
 - [Linux perf wiki](https://perf.wiki.kernel.org/index.php/Main_Page)
