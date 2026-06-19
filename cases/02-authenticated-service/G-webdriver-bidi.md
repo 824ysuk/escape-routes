@@ -37,11 +37,7 @@ npx puppeteer browsers install firefox
 
 ### Playwright (注意: BiDi 非対応)
 
-```
-Playwright は WebDriver BiDi protocol を native サポートしていない。
-connectOverCDP() はあるが BiDi 経路は提供されない。
-Playwright を使う場合は CDP 経路に留まる。
-```
+Playwright は WebDriver BiDi protocol を native サポートしていない。`connectOverCDP()` はあるが BiDi 経路は提供されない ([Playwright BrowserType docs](https://playwright.dev/docs/api/class-browsertype) に `bidi` 言及なし)。Playwright を使う場合は CDP 経路に留まる。
 
 ## コード
 
@@ -81,7 +77,13 @@ import path・シグネチャは [Selenium trunk の bidi_storage_tests.py](http
 ### Selenium Python — network intercept + auth handler
 
 ```python
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.bidi.network import Request
+
+options = Options()
+options.enable_bidi = True
+driver = webdriver.Firefox(options=options)
 
 def before_request(request: Request):
     # phase=beforeRequestSent で受信した request をそのまま継続
@@ -94,6 +96,7 @@ auth_id = driver.network.add_auth_handler("user", "password")
 driver.get("https://example.com/private")
 
 driver.network.remove_auth_handler(auth_id)
+driver.quit()
 ```
 
 シグネチャは [bidi_network_tests.py](https://github.com/SeleniumHQ/selenium/blob/trunk/py/test/selenium/webdriver/common/bidi_network_tests.py) から確認済み (`driver.network.add_request_handler("before_request", callback)` / `add_auth_handler(user, password)`)。
@@ -142,7 +145,7 @@ session abc123 https://example.com
 ]
 ```
 
-### `network.beforeRequestSent` event stream (subscribe 時)
+### BiDi protocol event log — `network.addIntercept` 経路での観察イメージ
 
 ```
 beforeRequestSent context=ABC123 request.method=GET request.url=https://example.com/private
