@@ -19,6 +19,7 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 | [G. OBI (OpenTelemetry eBPF Instrumentation)](G-obi-ebpf-otel.md) | eBPF で protocol level (HTTP/gRPC/SQL/Redis/Kafka) を OpenTelemetry trace 化、target pod 非改変 | 低（target pod 非改変、observer 側 privileged + hostPID 必要） |
 | [H. Pyroscope (continuous profiling)](H-pyroscope-continuous-profiling.md) | always-on で CPU / memory / I/O を line 単位に記録、時間軸 alignment で spike を事後 query | 中（agent overhead 数 %、OTel eBPF profiler 経路は privileged + hostPID 必要） |
 | [I. Polar Signals / Parca (eBPF continuous profiling: 商用 + OSS)](I-polar-signals-parca.md) | parca-agent + Parca server (OSS) または Polar Signals (商用 managed) で eBPF continuous profiling。商用 fallback の選択肢 | 中（agent overhead あり、root / CAP_SYS_ADMIN 必須、object storage backend の設計が必要） |
+| [J. LitmusChaos (chaos engineering / 制御再現)](J-litmuschaos.md) | declarative CR (ChaosEngine / ChaosExperiment / ChaosResult) で fault injection、観察軸 (A〜I) で捕まらない事象を制御再現に軸を切り替える | 高（意図的 fault 注入、Litmus 3.x は ChaosCenter 制御プレーン + cluster 内 RBAC が必要、production は annotation gating 推奨） |
 
 ## 他手段を選ぶ条件
 
@@ -30,7 +31,8 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 - **G（OBI / eBPF auto-instrumentation）**: コード / image / config 変更不可・再起動不可、protocol level の HTTP route や SQL query を見たい。kernel 5.8+（または RHEL 4.18+ backport）前提、distributed trace 維持には下流 service 側 OpenTelemetry SDK 計装も必要
 - **H（Pyroscope / continuous profiling）**: spike が偶発する・発生タイミングが予測できない、観測の時間軸 alignment が必要、proactive 最適化と reactive incident debug の両用がしたい
 - **I（Polar Signals / Parca）**: continuous profiling を欲するが Grafana stack を採用していない、または self-host Pyroscope の ops 負荷を商用 managed (Polar Signals) に逃がしたい
+- **J（LitmusChaos / chaos engineering）**: A〜I で観察できなかった・再現しなかった、production 事象が network partition / pod failure / resource starvation 等のインフラ依存だと仮定が立つ、staging で controlled に再現 → fix → 再 chaos で validation したい
 
 ## 補足
 
-「local で再現する」を諦めて「本番の生きた状態を観察する」に切り替えるとコストが下がる。観察手段はアプリ層（A・B）・OS 層（D・E）・統計層（C）に分かれる。原則論は Google SRE Book の "Effective Troubleshooting" 章が参考になる。
+「local で再現する」を諦めて「本番の生きた状態を観察する」に切り替えるとコストが下がる。観察手段はアプリ層（A・B）・OS 層（D・E）・統計層（C）に分かれる。A〜I で観察できなかった場合は制御再現軸（J）への切り替えを検討する。原則論は Google SRE Book の "Effective Troubleshooting" 章が参考になる。
