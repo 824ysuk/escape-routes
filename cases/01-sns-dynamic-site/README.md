@@ -31,6 +31,7 @@
 | E. Playwright + stealth | 自前 | ブラウザ | ブラウザ | ブラウザ | 部分 bypass | △ |
 | E. rebrowser/patchright | 自前 | ブラウザ | ブラウザ | ブラウザ | 多 bypass | △ |
 | F. 商用 (ScrapFly ASP 等) | residential | ベンダー | ベンダー | ベンダー | ベンダー | 人手 solver 連携 |
+| G. Jetstream (Bluesky) | 不要 | 不要 | 不要 | 不要 | 不要 | 不要 |
 
 ## 法的リスクの 3 層
 
@@ -54,6 +55,7 @@
 | [D. 公式 API / DL 機能](D-official-api.md) | Instagram Graph API、ユーザー設定の DL 機能 | 恒久的 | 自分の Business のみ 100% |
 | [E. ヘッドレスブラウザ + stealth](E-headless-stealth.md) | Playwright + stealth / rebrowser-playwright | 定期自動化向け | playwright-stealth: 50% / rebrowser: 80% |
 | [F. 商用 scraping API](F-commercial-api.md) | ScrapingBee / ScrapFly / Bright Data ほか | 大量・継続向け（有料） | ASP 系: 95%+ |
+| [G. Bluesky Jetstream](G-bluesky-jetstream.md) | WebSocket + JSON でリアルタイム購読 | 恒久的（Bluesky のみ） | 100%（認証不要・Bluesky のみ） |
 
 成功率は対象 SNS と時期で大きく変動する。Instagram は datacenter IP を 2023 以降 block 級扱い、X (Twitter) は mobile proxy がほぼ必須。
 
@@ -64,6 +66,7 @@
 - **D（公式）**: 自社 / 自分のアカウントで、定期業務として組み込みたい (法的・ToS 観点では第一候補)
 - **E（Playwright stealth）**: ログインや無限スクロール等の操作が必要。新規導入なら playwright-stealth ではなく [rebrowser-playwright](https://github.com/rebrowser/rebrowser-patches) / [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright) を主軸に
 - **F（商用 API）**: 大量・継続的、自前運用したくない。proxy 種別 (datacenter / ISP / residential / mobile) を SNS に合わせて選ぶ
+- **G（Jetstream）**: Bluesky のリアルタイム feed 追跡・特定アカウントの post 追跡・多 collection 同時 subscribe。D（公式 API）の polling ではなく push が必要なとき。archival / 法的証跡が必要な場合は event が unsigned のため不向き（official CBOR firehose を使う）
 
 ## 補足
 
