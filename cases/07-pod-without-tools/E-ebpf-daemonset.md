@@ -52,7 +52,7 @@ kubectl gadget version
 ### Pixie
 
 ```bash
-# Pixie operator (px CLI)
+# Pixie operator (px CLI) — 最新インストール手順は https://docs.px.dev/installing-pixie/ を参照
 bash <(curl -fsSL https://withpixie.ai/install.sh)
 px auth login
 px deploy    # cluster に Pixie をデプロイ
@@ -193,6 +193,7 @@ eBPF DaemonSet 自体は privileged pod で動くが、観察対象 (target pod)
 - [Cilium Hubble (GitHub)](https://github.com/cilium/hubble)
 - [Inspektor Gadget (GitHub)](https://github.com/inspektor-gadget/inspektor-gadget)
 - [Pixie (pixie-io/pixie GitHub)](https://github.com/pixie-io/pixie)
+- [Pixie ドキュメント (px.dev)](https://docs.px.dev/)
 - [Kubeshark (GitHub)](https://github.com/kubeshark/kubeshark)
 - [Microsoft Retina (GitHub)](https://github.com/microsoft/retina)
 - [CloudRaft: eBPF network observability with Cilium Hubble](https://www.cloudraft.io/blog/ebpf-based-network-observability-using-cilium-hubble)

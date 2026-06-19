@@ -130,6 +130,12 @@ open /tmp/cap.pcap  # macOS なら Wireshark で開く
 
 `-o /tmp/cap.pcap` は world-readable パスへの書き込み。詳細 → [事例 3-E: pcap の機密取扱い](../03-production-only-bug/E-tcpdump-strace.md#pcap-の機密取扱い)
 
+### ksniff のメンテナンス状況
+
+ksniff は 2023 年以降コミット頻度が低下しており、k8s 1.28+ 環境での動作問題が報告されている（[GitHub Issues](https://github.com/eldadru/ksniff/issues) 参照）。`kubectl sniff` が想定通りに動作しない場合の代替:
+- **C 手段 (node 側 veth tcpdump)**: Pod 完全 untouched で同等の観察が可能 → [C-node-veth-tcpdump.md](C-node-veth-tcpdump.md)
+- **Inspektor Gadget**: `kubectl gadget trace tcpdump -n <namespace> --podname <pod>` — E 手段のサブセット、任意 CNI 対応 → [E-ebpf-daemonset.md](E-ebpf-daemonset.md)
+
 ## 参考
 
 - [ksniff (eldadru/ksniff) GitHub](https://github.com/eldadru/ksniff)
