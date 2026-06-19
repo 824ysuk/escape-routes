@@ -6,7 +6,7 @@
 > **適法境界**: 自社が運用するクラスタへの fault injection のみ。第三者クラスタへの無権限 chaos 注入は不正アクセス禁止法 3 条に抵触しうる
 > **Disclosure 経路**: N/A（自社インフラの制御再現のため脆弱性発見性なし）
 
-> **A〜H との役割分担**: [A (trace replay)](A-trace-replay.md) / [B (profiler)](B-profiler.md) / [C (canary)](C-canary.md) / [D (core dump)](D-core-dump.md) / [E (tcpdump / strace)](E-tcpdump-strace.md) / [F (eBPF / bpftrace)](F-ebpf-bpftrace.md) / [G (OBI)](G-obi-ebpf-otel.md) / [H (Pyroscope)](H-pyroscope-continuous-profiling.md) はすべて**観察軸**で、起きた事象を後追いで観測する。LitmusChaos は**制御再現軸**で、network partition / pod kill / node failure / resource starvation 等のインフラ事象を意図的に注入して staging で再現し、fix → 再 chaos で validation するループに組み込む。「A〜H で観察できなかった・再現しなかった」場合に本手段へ切り替える。
+> **A〜I との役割分担**: [A (trace replay)](A-trace-replay.md) / [B (profiler)](B-profiler.md) / [C (canary)](C-canary.md) / [D (core dump)](D-core-dump.md) / [E (tcpdump / strace)](E-tcpdump-strace.md) / [F (eBPF / bpftrace)](F-ebpf-bpftrace.md) / [G (OBI)](G-obi-ebpf-otel.md) / [H (Pyroscope)](H-pyroscope-continuous-profiling.md) / [I (Polar Signals / Parca)](I-polar-signals-parca.md) はすべて**観察軸**で、起きた事象を後追いで観測する。LitmusChaos は**制御再現軸**で、network partition / pod kill / node failure / resource starvation 等のインフラ事象を意図的に注入して staging で再現し、fix → 再 chaos で validation するループに組み込む。「A〜I で観察できなかった・再現しなかった」場合に本手段へ切り替える。
 
 ## 前提 / install
 
