@@ -16,6 +16,7 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 | [D. core dump + デバッガ](D-core-dump.md) | crash 時の core を取り gdb / delve / lldb で attach | 低（事後） |
 | [E. tcpdump / strace](E-tcpdump-strace.md) | syscall・パケット単位で挙動を観察 | 中 |
 | [F. eBPF / bpftrace / perf record](F-ebpf-bpftrace.md) | kernel-level の syscall / CPU flame / ディスク I/O を低 overhead で観察 | 低（eBPF verifier 通過のみ） |
+| [G. OBI (OpenTelemetry eBPF Instrumentation)](G-obi-ebpf-otel.md) | eBPF で protocol level (HTTP/gRPC/SQL/Redis/Kafka) を OpenTelemetry trace 化、target pod 非改変 | 低（target pod 非改変、observer 側 privileged + hostPID 必要） |
 
 ## 他手段を選ぶ条件
 
@@ -24,6 +25,7 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 - **D（core dump）**: crash する、落ちる瞬間のメモリ・スタックが知りたい
 - **E（tcpdump / strace）**: アプリログに何も出ない、OS との境界を疑っている
 - **F（eBPF / bpftrace）**: アプリ層では追えない kernel-side の事象（syscall・scheduler・I/O・network）を long-run 観察したい
+- **G（OBI / eBPF auto-instrumentation）**: コード / image / config 変更不可・再起動不可、protocol level の HTTP route や SQL query を見たい。kernel 5.8+（または RHEL 4.18+ backport）前提、distributed trace 維持には下流 service 側 OpenTelemetry SDK 計装も必要
 
 ## 補足
 
