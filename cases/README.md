@@ -11,3 +11,4 @@
 3. [03-production-only-bug/](03-production-only-bug/README.md) — 本番でしか起きないバグを調査したい
 4. [04-big-data-oom/](04-big-data-oom/README.md) — 巨大データで OOM が出る
 5. [05-invisible-traffic/](05-invisible-traffic/README.md) — ブラウザに見えない通信を観察したい
+6. [06-ci-only-failure/](06-ci-only-failure/README.md) — CI でしか起きない失敗を調査したい
