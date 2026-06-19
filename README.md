@@ -38,7 +38,7 @@
 | # | 事例 | 詰まる原因 | 代替手段数 |
 |---|---|---|---|
 | 1 | [SNS / 動的サイトからデータが取れない](cases/01-sns-dynamic-site/README.md) | ボット検知・JS 動的レンダリング | 7 |
-| 2 | [認証必須サービスから定期取得したい](cases/02-authenticated-service/README.md) | OAuth / 2FA / Cookie 同期 | 6 |
+| 2 | [認証必須サービスから定期取得したい](cases/02-authenticated-service/README.md) | OAuth / 2FA / Cookie 同期 | 7 |
 | 3 | [本番でしか起きないバグを調査したい](cases/03-production-only-bug/README.md) | local で再現できない | 7 |
 | 4 | [巨大データで OOM が出る](cases/04-big-data-oom/README.md) | メモリに収まらない | 5 |
 | 5 | [ブラウザに見えない通信を観察したい](cases/05-invisible-traffic/README.md) | モバイル・他アプリ・暗号化通信 | 5 |
