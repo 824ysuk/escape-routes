@@ -8,18 +8,18 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 
 ## 代替手段
 
-| 手段 | 概要 | 侵襲度 |
-|---|---|---|
-| [A. trace ID から request payload を抜いて local replay](A-trace-replay.md) | 失敗 request の payload を APM から抜き local で同じ入力を再実行 | 低 |
-| [B. 本番にプロファイラを attach](B-profiler.md) | py-spy / async-profiler を稼働中プロセスに | 中（CPU 数 % のオーバーヘッド） |
-| [C. canary deploy + 詳細ログ](C-canary.md) | 1% のトラフィックにだけ debug log を流す | 中（コード変更要） |
-| [D. core dump + デバッガ](D-core-dump.md) | crash 時の core を取り gdb / delve / lldb で attach | 低（事後） |
-| [E. tcpdump / strace](E-tcpdump-strace.md) | syscall・パケット単位で挙動を観察 | 中 |
-| [F. eBPF / bpftrace / perf record](F-ebpf-bpftrace.md) | kernel-level の syscall / CPU flame / ディスク I/O を低 overhead で観察 | 低（eBPF verifier 通過のみ） |
-| [G. OBI (OpenTelemetry eBPF Instrumentation)](G-obi-ebpf-otel.md) | eBPF で protocol level (HTTP/gRPC/SQL/Redis/Kafka) を OpenTelemetry trace 化、target pod 非改変 | 低（target pod 非改変、observer 側 privileged + hostPID 必要） |
-| [H. Pyroscope (continuous profiling)](H-pyroscope-continuous-profiling.md) | always-on で CPU / memory / I/O を line 単位に記録、時間軸 alignment で spike を事後 query | 中（agent overhead 数 %、OTel eBPF profiler 経路は privileged + hostPID 必要） |
-| [I. Polar Signals / Parca (eBPF continuous profiling: 商用 + OSS)](I-polar-signals-parca.md) | parca-agent + Parca server (OSS) または Polar Signals (商用 managed) で eBPF continuous profiling。商用 fallback の選択肢 | 中（agent overhead あり、root / CAP_SYS_ADMIN 必須、object storage backend の設計が必要） |
-| [J. LitmusChaos (chaos engineering / 制御再現)](J-litmuschaos.md) | declarative CR (ChaosEngine / ChaosExperiment / ChaosResult) で fault injection、観察軸 (A〜I) で捕まらない事象を制御再現に軸を切り替える | 高（意図的 fault 注入、Litmus 3.x は ChaosCenter 制御プレーン + cluster 内 RBAC が必要、production は annotation gating 推奨） |
+| 手段 | 観察軸 | 概要 | 侵襲度 |
+|---|---|---|---|
+| [A. trace ID から request payload を抜いて local replay](A-trace-replay.md) | アプリ trace replay | 失敗 request の payload を APM から抜き local で同じ入力を再実行 | 低 |
+| [B. 本番にプロファイラを attach](B-profiler.md) | アプリ profile sampling | py-spy / async-profiler を稼働中プロセスに | 中（CPU 数 % のオーバーヘッド） |
+| [C. canary deploy + 詳細ログ](C-canary.md) | 統計（canary） | 1% のトラフィックにだけ debug log を流す | 中（コード変更要） |
+| [D. core dump + デバッガ](D-core-dump.md) | アプリ post-mortem | crash 時の core を取り gdb / delve / lldb で attach | 低（事後） |
+| [E. tcpdump / strace](E-tcpdump-strace.md) | OS syscall・packet | syscall・パケット単位で挙動を観察 | 中 |
+| [F. eBPF / bpftrace / perf record](F-ebpf-bpftrace.md) | kernel eBPF raw | kernel-level の syscall / CPU flame / ディスク I/O を低 overhead で観察 | 低（eBPF verifier 通過のみ） |
+| [G. OBI (OpenTelemetry eBPF Instrumentation)](G-obi-ebpf-otel.md) | eBPF protocol trace（L7） | eBPF で protocol level (HTTP/gRPC/SQL/Redis/Kafka) を OpenTelemetry trace 化、target pod 非改変 | 低（target pod 非改変、observer 側 privileged + hostPID 必要） |
+| [H. Pyroscope (continuous profiling)](H-pyroscope-continuous-profiling.md) | continuous profiling（OSS / Grafana） | always-on で CPU / memory / I/O を line 単位に記録、時間軸 alignment で spike を事後 query | 中（agent overhead 数 %、OTel eBPF profiler 経路は privileged + hostPID 必要） |
+| [I. Polar Signals / Parca (eBPF continuous profiling: 商用 + OSS)](I-polar-signals-parca.md) | continuous profiling（eBPF / 商用 fallback） | parca-agent + Parca server (OSS) または Polar Signals (商用 managed) で eBPF continuous profiling。商用 fallback の選択肢 | 中（agent overhead あり、root / CAP_SYS_ADMIN 必須、object storage backend の設計が必要） |
+| [J. LitmusChaos (chaos engineering / 制御再現)](J-litmuschaos.md) | 制御再現（chaos） | declarative CR (ChaosEngine / ChaosExperiment / ChaosResult) で fault injection、観察軸 (A〜I) で捕まらない事象を制御再現に軸を切り替える | 高（意図的 fault 注入、Litmus 3.x は ChaosCenter 制御プレーン + cluster 内 RBAC が必要、production は annotation gating 推奨） |
 
 ## 他手段を選ぶ条件
 
@@ -33,6 +33,37 @@ local や staging で再現しない、production でだけ落ちる / 遅くな
 - **I（Polar Signals / Parca）**: continuous profiling を欲するが Grafana stack を採用していない、または self-host Pyroscope の ops 負荷を商用 managed (Polar Signals) に逃がしたい
 - **J（LitmusChaos / chaos engineering）**: A〜I で観察できなかった・再現しなかった、production 事象が network partition / pod failure / resource starvation 等のインフラ依存だと仮定が立つ、staging で controlled に再現 → fix → 再 chaos で validation したい
 
+### eBPF を使う 3 手段の使い分け（F / G / I）
+
+いずれも eBPF を使うが観察対象レイヤーが異なる。
+
+- **F（kernel eBPF raw）**: kernel-side の syscall / scheduler / I/O を **raw** に観察したい。ad-hoc 起動・low-overhead・long-run 可
+- **G（OBI / eBPF protocol trace）**: **L7 protocol level**（HTTP route / SQL query / gRPC / Redis / Kafka）を OpenTelemetry trace として取りたい。target pod 非改変が必須条件。kernel 5.8+（または RHEL 4.18+ backport）+ BTF 必須
+- **I（Parca / Polar Signals / eBPF continuous profiling）**: CPU flamegraph を **always-on で継続記録**したい（時間軸 alignment）。商用 managed（Polar Signals SaaS）への ops オフロードも選択肢
+
+### continuous profiling 2 手段の使い分け（H / I）
+
+どちらも always-on continuous profiling だが、採用スタック・運用形態で分岐する。
+
+- **H（Pyroscope）**: Grafana stack を採用済み・採用可、OSS で完結したい（Pyroscope agent + Pyroscope server）
+- **I（Parca / Polar Signals）**: Grafana stack を採用していない、または self-host Pyroscope の ops 負荷を商用 managed（Polar Signals SaaS）に逃がしたい。同一 parca-agent で OSS Parca server / 商用 Polar Signals backend を切替可能（商用 fallback 軸）
+
 ## 補足
 
-「local で再現する」を諦めて「本番の生きた状態を観察する」に切り替えるとコストが下がる。観察手段はアプリ層（A・B）・OS 層（D・E）・統計層（C）に分かれる。A〜I で観察できなかった場合は制御再現軸（J）への切り替えを検討する。原則論は Google SRE Book の "Effective Troubleshooting" 章が参考になる。
+### 観察軸と制御再現軸の俯瞰
+
+```text
+観察軸                                              制御再現軸
+├ アプリ層       A (replay)  B (profile)  D (core)
+├ 統計層         C (canary)
+├ OS 層          E (tcpdump / strace)
+├ kernel raw     F (eBPF / bpftrace / perf)
+├ L7 protocol    G (OBI: eBPF → OTel trace)
+└ continuous     H (Pyroscope)  I (Parca / Polar Signals)
+     │
+     │ A〜I で観察できなかった場合
+     ▼
+                                                    J (LitmusChaos)
+```
+
+「local で再現する」を諦めて「本番の生きた状態を観察する」に切り替えるとコストが下がる。観察手段はアプリ層（A・B・D）・統計層（C）・OS 層（E）・kernel eBPF raw（F）・L7 protocol trace（G）・continuous profiling（H・I）に分かれる。A〜I で観察できなかった場合は制御再現軸（J）への切り替えを検討する。原則論は Google SRE Book の "Effective Troubleshooting" 章が参考になる。
